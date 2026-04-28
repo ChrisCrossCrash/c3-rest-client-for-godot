@@ -1,8 +1,8 @@
 extends BaseLightState
 class_name GreenState
 
-func enter() -> void:
-    super()  # The super class sets the color of the text.
+func enter(from: C3State) -> void:
+    super(from)  # The super class sets the color of the text.
     demo.label.text = "GREEN"
 
 func process_frame(delta: float) -> BaseLightState:

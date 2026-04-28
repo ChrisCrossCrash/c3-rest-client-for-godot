@@ -1,6 +1,6 @@
 # C3 Godot Utils
-# v1.1.0
-# File revision: 2025-12-24
+# v2.0.0
+# File revision: 2026-04-28
 
 @tool
 class_name C3StateMachine
@@ -50,11 +50,12 @@ func init(context: Node) -> void:
 
 ## Changes to the new state by first calling any exit logic on the current state.
 func change_state(new_state: C3State) -> void:
+    var previous_state := current_state
     if current_state:
         current_state.exit()
 
     current_state = new_state
-    current_state.enter()
+    current_state.enter(previous_state)
 
 
 func _physics_process(delta: float) -> void:

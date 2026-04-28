@@ -20,13 +20,15 @@ class SpyState:
     var frame_calls := 0
     var physics_calls := 0
     var input_calls := 0
+    var last_from: C3State = null
 
     var return_on_frame: C3State = null
     var return_on_physics: C3State = null
     var return_on_input: C3State = null
 
-    func enter() -> void:
+    func enter(from: C3State) -> void:
         entered += 1
+        last_from = from
 
     func exit() -> void:
         exited += 1
@@ -166,3 +168,35 @@ func test_configuration_warning_when_starting_state_is_not_set() -> void:
         _warnings_contain(warnings, "Starting state is not set"),
         "Should warn when 'starting_state' is not assigned"
     )
+
+
+func test_enter_receives_null_from_on_init() -> void:
+    var sm := C3StateMachine.new()
+    add_child_autofree(sm)
+
+    var ctx := Node.new()
+    add_child_autofree(ctx)
+
+    var a := SpyState.new()
+    sm.add_child(a)
+
+    sm.starting_state = a
+    sm.init(ctx)
+
+    assert_eq(a.entered, 1)
+    assert_null(a.last_from, "enter() should receive null when no previous state exists")
+
+
+func test_enter_receives_previous_state_as_from() -> void:
+    var sm := C3StateMachine.new()
+    add_child_autofree(sm)
+
+    var a := SpyState.new()
+    var b := SpyState.new()
+    sm.add_child(a)
+    sm.add_child(b)
+
+    sm.change_state(a)
+    sm.change_state(b)
+
+    assert_eq(b.last_from, a, "enter() should receive the outgoing state as 'from'")

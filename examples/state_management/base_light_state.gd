@@ -13,7 +13,7 @@ var elapsed_time := 0.0
 var demo: TrafficLightDemo:
     get: return context as TrafficLightDemo
 
-func enter() -> void:
+func enter(_from: C3State) -> void:
     # Even if you override this method, you can still get this behavior by
     # calling `super()` on the inheriting class.
     demo.label.add_theme_color_override("font_color", color)

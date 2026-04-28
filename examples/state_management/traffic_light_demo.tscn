@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3 uid="uid://csq4u3txto527"]
+[gd_scene format=3 uid="uid://csq4u3txto527"]
 
 [ext_resource type="Script" uid="uid://qsel3fijan12" path="res://examples/state_management/traffic_light_demo.gd" id="1_yyfd0"]
 [ext_resource type="Script" uid="uid://b3uwuok8e6fxg" path="res://c3_utils/c3_state_machine.gd" id="2_6ewhw"]
@@ -6,22 +6,22 @@
 [ext_resource type="Script" uid="uid://dbn6co87lxin4" path="res://examples/state_management/yellow_state.gd" id="4_nr5qq"]
 [ext_resource type="Script" uid="uid://d108idn2d1rh8" path="res://examples/state_management/green_state.gd" id="5_nr5qq"]
 
-[node name="TrafficLightDemo" type="Node"]
+[node name="TrafficLightDemo" type="Node" unique_id=995545644]
 script = ExtResource("1_yyfd0")
 
-[node name="StateMachine" type="Node" parent="." node_paths=PackedStringArray("starting_state")]
+[node name="StateMachine" type="Node" parent="." unique_id=1962719262 node_paths=PackedStringArray("starting_state")]
 script = ExtResource("2_6ewhw")
 starting_state = NodePath("RedState")
 metadata/_custom_type_script = "uid://b3uwuok8e6fxg"
 
-[node name="RedState" type="Node" parent="StateMachine" node_paths=PackedStringArray("red_state", "yellow_state", "green_state")]
+[node name="RedState" type="Node" parent="StateMachine" unique_id=2065675618 node_paths=PackedStringArray("red_state", "yellow_state", "green_state")]
 script = ExtResource("3_sox24")
 color = Color(1, 0, 0, 1)
 red_state = NodePath(".")
 yellow_state = NodePath("../YellowState")
 green_state = NodePath("../GreenState")
 
-[node name="YellowState" type="Node" parent="StateMachine" node_paths=PackedStringArray("red_state", "yellow_state", "green_state")]
+[node name="YellowState" type="Node" parent="StateMachine" unique_id=1771765330 node_paths=PackedStringArray("red_state", "yellow_state", "green_state")]
 script = ExtResource("4_nr5qq")
 color = Color(1, 1, 0, 1)
 duration = 1.0
@@ -29,14 +29,14 @@ red_state = NodePath("../RedState")
 yellow_state = NodePath(".")
 green_state = NodePath("../GreenState")
 
-[node name="GreenState" type="Node" parent="StateMachine" node_paths=PackedStringArray("red_state", "yellow_state", "green_state")]
+[node name="GreenState" type="Node" parent="StateMachine" unique_id=497217835 node_paths=PackedStringArray("red_state", "yellow_state", "green_state")]
 script = ExtResource("5_nr5qq")
 color = Color(0, 1, 0, 1)
 red_state = NodePath("../RedState")
 yellow_state = NodePath("../YellowState")
 green_state = NodePath(".")
 
-[node name="TrafficLightLabel" type="Label" parent="."]
+[node name="TrafficLightLabel" type="Label" parent="." unique_id=57459462]
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 187.0

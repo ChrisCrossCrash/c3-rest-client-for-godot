@@ -1,6 +1,6 @@
 # C3 Godot Utils
-# v1.1.0
-# File revision: 2025-12-23
+# v2.0.0
+# File revision: 2026-04-28
 
 class_name C3State
 extends Node
@@ -20,10 +20,12 @@ var context: Node
 
 
 ## Called when the state becomes active.
+## [param from] is the state that was active immediately before this one,
+## or [code]null[/code] when the state machine first initializes.[br]
 ##
 ## Override this method to perform setup logic such as resetting timers,
 ## enabling input, or initializing state-specific data.
-func enter() -> void:
+func enter(_from: C3State) -> void:
     pass
 
 
