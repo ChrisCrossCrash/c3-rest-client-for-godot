@@ -120,3 +120,158 @@ class TestCubeVectorToSphere:
 
         # Direction preserved (parallel vectors => normalized dot ~ 1)
         assert_almost_eq(result.normalized().dot(v.normalized()), 1.0, EPS)
+
+
+class TestIsAnyKey:
+    extends GutTest
+
+    # --- Helpers ---
+
+    func _make_key_event(keycode: int, pressed := true, echo := false) -> InputEventKey:
+        var event := InputEventKey.new()
+        event.keycode = keycode
+        event.pressed = pressed
+        event.echo = echo
+        return event
+
+    func _make_joypad_button_event(pressed := true) -> InputEventJoypadButton:
+        var event := InputEventJoypadButton.new()
+        event.button_index = JOY_BUTTON_A
+        event.pressed = pressed
+        return event
+
+    func _make_mouse_button_event(pressed := true) -> InputEventMouseButton:
+        var event := InputEventMouseButton.new()
+        event.button_index = MOUSE_BUTTON_LEFT
+        event.pressed = pressed
+        return event
+
+    # --- Regular keys: should always count ---
+
+    func test_letter_key_counts() -> void:
+        var event := _make_key_event(KEY_A)
+        assert_true(C3Utils.is_any_key(event))
+
+    func test_space_counts() -> void:
+        var event := _make_key_event(KEY_SPACE)
+        assert_true(C3Utils.is_any_key(event))
+
+    func test_enter_counts() -> void:
+        var event := _make_key_event(KEY_ENTER)
+        assert_true(C3Utils.is_any_key(event))
+
+    func test_escape_counts() -> void:
+        var event := _make_key_event(KEY_ESCAPE)
+        assert_true(C3Utils.is_any_key(event))
+
+    # --- Key release and echo: should not count ---
+
+    func test_key_release_does_not_count() -> void:
+        var event := _make_key_event(KEY_A, false)
+        assert_false(C3Utils.is_any_key(event))
+
+    func test_key_echo_does_not_count() -> void:
+        var event := _make_key_event(KEY_A, true, true)
+        assert_false(C3Utils.is_any_key(event))
+
+    # --- Media keys: never count, regardless of include_modifiers ---
+
+    func test_volume_up_does_not_count() -> void:
+        var event := _make_key_event(KEY_VOLUMEUP)
+        assert_false(C3Utils.is_any_key(event))
+
+    func test_volume_down_does_not_count() -> void:
+        var event := _make_key_event(KEY_VOLUMEDOWN)
+        assert_false(C3Utils.is_any_key(event))
+
+    func test_volume_mute_does_not_count() -> void:
+        var event := _make_key_event(KEY_VOLUMEMUTE)
+        assert_false(C3Utils.is_any_key(event))
+
+    func test_media_play_does_not_count() -> void:
+        var event := _make_key_event(KEY_MEDIAPLAY)
+        assert_false(C3Utils.is_any_key(event))
+
+    func test_media_keys_excluded_even_with_include_modifiers() -> void:
+        # Media keys should remain excluded regardless of the modifier flag.
+        for keycode in [
+            KEY_VOLUMEDOWN, KEY_VOLUMEMUTE, KEY_VOLUMEUP,
+            KEY_MEDIAPLAY, KEY_MEDIASTOP, KEY_MEDIAPREVIOUS,
+            KEY_MEDIANEXT, KEY_MEDIARECORD,
+        ]:
+            var event := _make_key_event(keycode)
+            assert_false(C3Utils.is_any_key(event, true),
+                "Media key %d should not count even with include_modifiers=true" % keycode)
+
+    # --- Modifier keys: excluded by default, included when requested ---
+
+    func test_shift_excluded_by_default() -> void:
+        var event := _make_key_event(KEY_SHIFT)
+        assert_false(C3Utils.is_any_key(event))
+
+    func test_ctrl_excluded_by_default() -> void:
+        var event := _make_key_event(KEY_CTRL)
+        assert_false(C3Utils.is_any_key(event))
+
+    func test_alt_excluded_by_default() -> void:
+        var event := _make_key_event(KEY_ALT)
+        assert_false(C3Utils.is_any_key(event))
+
+    func test_capslock_excluded_by_default() -> void:
+        var event := _make_key_event(KEY_CAPSLOCK)
+        assert_false(C3Utils.is_any_key(event))
+
+    func test_all_modifiers_excluded_by_default() -> void:
+        for keycode in [
+            KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_META,
+            KEY_CAPSLOCK, KEY_NUMLOCK, KEY_SCROLLLOCK,
+        ]:
+            var event := _make_key_event(keycode)
+            assert_false(C3Utils.is_any_key(event),
+                "Modifier key %d should be excluded by default" % keycode)
+
+    func test_all_modifiers_count_when_included() -> void:
+        for keycode in [
+            KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_META,
+            KEY_CAPSLOCK, KEY_NUMLOCK, KEY_SCROLLLOCK,
+        ]:
+            var event := _make_key_event(keycode)
+            assert_true(C3Utils.is_any_key(event, true),
+                "Modifier key %d should count when include_modifiers=true" % keycode)
+
+    func test_regular_key_counts_with_include_modifiers_true() -> void:
+        # Sanity: include_modifiers=true should not break regular keys.
+        var event := _make_key_event(KEY_A)
+        assert_true(C3Utils.is_any_key(event, true))
+
+    # --- Joypad buttons ---
+
+    func test_joypad_button_press_counts() -> void:
+        var event := _make_joypad_button_event(true)
+        assert_true(C3Utils.is_any_key(event))
+
+    func test_joypad_button_release_does_not_count() -> void:
+        var event := _make_joypad_button_event(false)
+        assert_false(C3Utils.is_any_key(event))
+
+    # --- Mouse buttons ---
+
+    func test_mouse_button_press_counts() -> void:
+        var event := _make_mouse_button_event(true)
+        assert_true(C3Utils.is_any_key(event))
+
+    func test_mouse_button_release_does_not_count() -> void:
+        var event := _make_mouse_button_event(false)
+        assert_false(C3Utils.is_any_key(event))
+
+    # --- Unrelated event types: should not count ---
+
+    func test_mouse_motion_does_not_count() -> void:
+        var event := InputEventMouseMotion.new()
+        assert_false(C3Utils.is_any_key(event))
+
+    func test_joypad_motion_does_not_count() -> void:
+        var event := InputEventJoypadMotion.new()
+        event.axis = JOY_AXIS_LEFT_X
+        event.axis_value = 0.8
+        assert_false(C3Utils.is_any_key(event))

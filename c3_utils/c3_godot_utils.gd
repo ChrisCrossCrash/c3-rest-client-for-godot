@@ -1,9 +1,29 @@
 # C3 Godot Utils
-# v2.0.0
-# File revision: 2026-01-18
+# v2.1.0
+# File revision: 2026-05-03
 
 class_name C3Utils
 
+const _MEDIA_KEYS := [
+    KEY_VOLUMEDOWN,
+    KEY_VOLUMEMUTE,
+    KEY_VOLUMEUP,
+    KEY_MEDIAPLAY,
+    KEY_MEDIASTOP,
+    KEY_MEDIAPREVIOUS,
+    KEY_MEDIANEXT,
+    KEY_MEDIARECORD,
+]
+
+const _MODIFIER_KEYS := [
+    KEY_SHIFT,
+    KEY_CTRL,
+    KEY_ALT,
+    KEY_META,
+    KEY_CAPSLOCK,
+    KEY_NUMLOCK,
+    KEY_SCROLLLOCK,
+]
 
 ## Clamps a 3D input vector from a cube-shaped range to a unit sphere.[br][br]
 ##
@@ -104,9 +124,19 @@ static func format_time(seconds: float, sign_positive: bool = false) -> String:
 
 
 ## Returns true if the event is any key press, button press, or mouse click.
-static func is_any_key(event: InputEvent) -> bool:
-    return (
-        event is InputEventKey and event.pressed and not event.echo
-        or event is InputEventJoypadButton and event.pressed
-        or event is InputEventMouseButton and event.pressed
-    )
+## Excludes media keys. Set include_modifiers to true to allow Shift/Ctrl/Alt/etc.
+## alone to count as a key press.
+static func is_any_key(event: InputEvent, include_modifiers := false) -> bool:
+    if event is InputEventKey and event.pressed and not event.echo:
+        return not _is_excluded_key(event.keycode, include_modifiers)
+    if event is InputEventJoypadButton and event.pressed:
+        return true
+    if event is InputEventMouseButton and event.pressed:
+        return true
+    return false
+
+
+static func _is_excluded_key(keycode: int, include_modifiers: bool) -> bool:
+    if keycode in _MEDIA_KEYS:
+        return true
+    return not include_modifiers and keycode in _MODIFIER_KEYS
