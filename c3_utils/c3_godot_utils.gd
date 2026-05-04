@@ -1,6 +1,6 @@
 # C3 Godot Utils
 # v2.1.0
-# File revision: 2026-05-03
+# File revision: 2026-05-04
 
 class_name C3Utils
 
@@ -23,6 +23,13 @@ const _MODIFIER_KEYS := [
     KEY_CAPSLOCK,
     KEY_NUMLOCK,
     KEY_SCROLLLOCK,
+]
+
+const _MOUSE_WHEEL_BUTTONS := [
+    MOUSE_BUTTON_WHEEL_UP,
+    MOUSE_BUTTON_WHEEL_DOWN,
+    MOUSE_BUTTON_WHEEL_LEFT,
+    MOUSE_BUTTON_WHEEL_RIGHT,
 ]
 
 ## Clamps a 3D input vector from a cube-shaped range to a unit sphere.[br][br]
@@ -124,15 +131,15 @@ static func format_time(seconds: float, sign_positive: bool = false) -> String:
 
 
 ## Returns true if the event is any key press, button press, or mouse click.
-## Excludes media keys. Set include_modifiers to true to allow Shift/Ctrl/Alt/etc.
-## alone to count as a key press.
+## Excludes media keys and mouse wheel scrolls. Set include_modifiers to true
+## to allow Shift/Ctrl/Alt/etc. alone to count as a key press.
 static func is_any_key(event: InputEvent, include_modifiers := false) -> bool:
     if event is InputEventKey and event.pressed and not event.echo:
         return not _is_excluded_key(event.keycode, include_modifiers)
     if event is InputEventJoypadButton and event.pressed:
         return true
     if event is InputEventMouseButton and event.pressed:
-        return true
+        return not event.button_index in _MOUSE_WHEEL_BUTTONS
     return false
 
 

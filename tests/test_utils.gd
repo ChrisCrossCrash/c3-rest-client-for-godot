@@ -146,6 +146,12 @@ class TestIsAnyKey:
         event.pressed = pressed
         return event
 
+    func _make_mouse_wheel_event(button_index: int) -> InputEventMouseButton:
+        var event := InputEventMouseButton.new()
+        event.button_index = button_index
+        event.pressed = true
+        return event
+
     # --- Regular keys: should always count ---
 
     func test_letter_key_counts() -> void:
@@ -263,6 +269,33 @@ class TestIsAnyKey:
     func test_mouse_button_release_does_not_count() -> void:
         var event := _make_mouse_button_event(false)
         assert_false(C3Utils.is_any_key(event))
+
+    # --- Mouse wheel: never count ---
+
+    func test_mouse_wheel_up_does_not_count() -> void:
+        var event := _make_mouse_wheel_event(MOUSE_BUTTON_WHEEL_UP)
+        assert_false(C3Utils.is_any_key(event))
+
+    func test_mouse_wheel_down_does_not_count() -> void:
+        var event := _make_mouse_wheel_event(MOUSE_BUTTON_WHEEL_DOWN)
+        assert_false(C3Utils.is_any_key(event))
+
+    func test_mouse_wheel_left_does_not_count() -> void:
+        var event := _make_mouse_wheel_event(MOUSE_BUTTON_WHEEL_LEFT)
+        assert_false(C3Utils.is_any_key(event))
+
+    func test_mouse_wheel_right_does_not_count() -> void:
+        var event := _make_mouse_wheel_event(MOUSE_BUTTON_WHEEL_RIGHT)
+        assert_false(C3Utils.is_any_key(event))
+
+    func test_all_mouse_wheel_directions_excluded() -> void:
+        for button_index in [
+            MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN,
+            MOUSE_BUTTON_WHEEL_LEFT, MOUSE_BUTTON_WHEEL_RIGHT,
+        ]:
+            var event := _make_mouse_wheel_event(button_index)
+            assert_false(C3Utils.is_any_key(event),
+                "Mouse wheel button %d should not count" % button_index)
 
     # --- Unrelated event types: should not count ---
 
