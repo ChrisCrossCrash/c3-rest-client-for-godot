@@ -12,7 +12,11 @@ fmod
 gdir
 gexit
 ginclude
+hashset
 Incentivized
+isdisjoint
+issubset
+issuperset
 Joypad
 lerp
 lihop

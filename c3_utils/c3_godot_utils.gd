@@ -1,6 +1,6 @@
 # C3 Godot Utils
-# v2.1.0
-# File revision: 2026-05-04
+# v2.2.0
+# File revision: 2026-05-13
 
 class_name C3Utils
 
@@ -147,3 +147,203 @@ static func _is_excluded_key(keycode: int, include_modifiers: bool) -> bool:
     if keycode in _MEDIA_KEYS:
         return true
     return not include_modifiers and keycode in _MODIFIER_KEYS
+
+
+## A hash-based set collection backed by a [Dictionary].[br][br]
+##
+## Stores unique values with O(1) average-case membership testing, insertion,
+## and removal. Accepts [Array], [Dictionary] (uses keys), or another [HashSet]
+## as an initializer or operand wherever an iterable is expected.[br][br]
+##
+## API mirrors Python's [code]set[/code] where practical.
+class HashSet:
+    var _data: Dictionary = {}
+
+    ## Creates a new [HashSet], optionally populated from [param iterable].[br][br]
+    ##
+    ## [param iterable] may be an [Array], [Dictionary] (uses keys), or another
+    ## [HashSet]. Omit the argument or pass [code]null[/code] for an empty set.
+    func _init(iterable: Variant = null) -> void:
+        if iterable != null:
+            _update_from(iterable)
+
+    # --- Core mutation ---
+
+    ## Adds [param value] to the set. Has no effect if [param value] is already present.
+    func add(value: Variant) -> void:
+        _data[value] = null
+
+    ## Removes [param value] from the set.[br][br]
+    ##
+    ## Pushes an error if [param value] is not present. Use [method discard]
+    ## for silent removal.
+    func remove(value: Variant) -> void:
+        if not _data.has(value):
+            push_error("HashSet.remove(x): x not in set")
+            return
+        _data.erase(value)
+
+    ## Removes [param value] from the set if present; does nothing otherwise.
+    func discard(value: Variant) -> void:
+        _data.erase(value)
+
+    ## Removes and returns an arbitrary element from the set.[br][br]
+    ##
+    ## Pushes an error and returns [code]null[/code] if the set is empty.
+    ## Iteration order is not guaranteed.
+    func pop() -> Variant:
+        if _data.is_empty():
+            push_error("pop from an empty set")
+            return null
+        var key = _data.keys()[0]
+        _data.erase(key)
+        return key
+
+    ## Removes all elements from the set.
+    func clear() -> void:
+        _data.clear()
+
+    # --- Queries ---
+
+    ## Returns [code]true[/code] if [param value] is a member of the set.
+    func has(value: Variant) -> bool:
+        return _data.has(value)
+
+    ## Returns the number of elements in the set.
+    func size() -> int:
+        return _data.size()
+
+    ## Returns [code]true[/code] if the set contains no elements.
+    func is_empty() -> bool:
+        return _data.is_empty()
+
+    ## Returns a shallow copy of the set.
+    func copy() -> HashSet:
+        return HashSet.new(_data.keys())
+
+    # --- Set algebra (non-mutating) ---
+
+    ## Returns a new [HashSet] containing all elements from both this set and [param other].
+    func union(other: Variant) -> HashSet:
+        var result := copy()
+        result._update_from(other)
+        return result
+
+    ## Returns a new [HashSet] containing only elements present in both this set and [param other].
+    func intersection(other: Variant) -> HashSet:
+        var other_set := _as_set(other)
+        var result := HashSet.new()
+        for value in _data.keys():
+            if other_set.has(value):
+                result.add(value)
+        return result
+
+    ## Returns a new [HashSet] containing elements in this set that are not in [param other].
+    func difference(other: Variant) -> HashSet:
+        var other_set := _as_set(other)
+        var result := HashSet.new()
+        for value in _data.keys():
+            if not other_set.has(value):
+                result.add(value)
+        return result
+
+    ## Returns a new [HashSet] containing elements in either set but not both.
+    func symmetric_difference(other: Variant) -> HashSet:
+        var other_set := _as_set(other)
+        var result := HashSet.new()
+        for value in _data.keys():
+            if not other_set.has(value):
+                result.add(value)
+        for value in other_set.values():
+            if not _data.has(value):
+                result.add(value)
+        return result
+
+    # --- Set algebra (in-place) ---
+
+    ## Adds all elements from [param other] to this set in place.
+    func update(other: Variant) -> void:
+        _update_from(other)
+
+    ## Removes from this set all elements not found in [param other], in place.
+    func intersection_update(other: Variant) -> void:
+        var other_set := _as_set(other)
+        for value in _data.keys():
+            if not other_set.has(value):
+                _data.erase(value)
+
+    ## Removes all elements found in [param other] from this set, in place.
+    func difference_update(other: Variant) -> void:
+        for value in _iter(other):
+            _data.erase(value)
+
+    ## Updates this set in place, keeping only elements found in one set or the
+    ## other, but not both.
+    func symmetric_difference_update(other: Variant) -> void:
+        for value in _iter(other):
+            if _data.has(value):
+                _data.erase(value)
+            else:
+                _data[value] = null
+
+    # --- Comparisons ---
+
+    ## Returns [code]true[/code] if every element of this set is in [param other].
+    func issubset(other: Variant) -> bool:
+        var other_set := _as_set(other)
+        for value in _data.keys():
+            if not other_set.has(value):
+                return false
+        return true
+
+    ## Returns [code]true[/code] if this set contains every element of [param other].
+    func issuperset(other: Variant) -> bool:
+        for value in _iter(other):
+            if not _data.has(value):
+                return false
+        return true
+
+    ## Returns [code]true[/code] if this set shares no elements with [param other].
+    func isdisjoint(other: Variant) -> bool:
+        for value in _iter(other):
+            if _data.has(value):
+                return false
+        return true
+
+    ## Returns [code]true[/code] if both sets contain exactly the same elements.
+    func equals(other: HashSet) -> bool:
+        if size() != other.size():
+            return false
+        return issubset(other)
+
+    # --- Iteration support ---
+
+    ## Returns all elements of the set as an [Array]. Order is not guaranteed.
+    func values() -> Array:
+        return _data.keys()
+
+    # --- Internal helpers ---
+
+    func _update_from(iterable: Variant) -> void:
+        for value in _iter(iterable):
+            _data[value] = null
+
+    func _iter(iterable: Variant) -> Array:
+        # Accept HashSet, Array, Dictionary (uses keys), or anything iterable
+        if iterable is HashSet:
+            return iterable.values()
+        elif iterable is Array:
+            return iterable
+        elif iterable is Dictionary:
+            return iterable.keys()
+        else:
+            push_error("HashSet: expected iterable, got %s" % typeof(iterable))
+            return []
+
+    func _as_set(other: Variant) -> HashSet:
+        if other is HashSet:
+            return other
+        return HashSet.new(other)
+
+    func _to_string() -> String:
+        return "HashSet(%s)" % str(_data.keys())

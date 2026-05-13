@@ -129,7 +129,7 @@ class TestIsAnyKey:
 
     func _make_key_event(keycode: int, pressed := true, echo := false) -> InputEventKey:
         var event := InputEventKey.new()
-        event.keycode = keycode
+        event.keycode = keycode as Key
         event.pressed = pressed
         event.echo = echo
         return event
@@ -148,7 +148,7 @@ class TestIsAnyKey:
 
     func _make_mouse_wheel_event(button_index: int) -> InputEventMouseButton:
         var event := InputEventMouseButton.new()
-        event.button_index = button_index
+        event.button_index = button_index as MouseButton
         event.pressed = true
         return event
 
