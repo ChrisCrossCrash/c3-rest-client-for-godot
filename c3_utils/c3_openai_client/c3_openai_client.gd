@@ -1,3 +1,7 @@
+# C3 Godot Utils
+# v2.3.0
+# File revision: 2026-05-23
+
 class_name C3OpenAIClient
 extends Node
 ## General-purpose client for OpenAI-compatible HTTP APIs.
