@@ -26,7 +26,7 @@ var context: Node
 ## Override this method to perform setup logic such as resetting timers,
 ## enabling input, or initializing state-specific data.
 func enter(_from: C3State) -> void:
-    pass
+	pass
 
 
 ## Called just before the state is exited.
@@ -34,7 +34,7 @@ func enter(_from: C3State) -> void:
 ## Override this method to perform cleanup logic such as stopping effects,
 ## disconnecting signals, or saving transient state.
 func exit() -> void:
-    pass
+	pass
 
 
 ## Handles input events while this state is active.
@@ -42,7 +42,7 @@ func exit() -> void:
 ## Return a [C3State] to request an immediate transition to that state.
 ## Return [code]null[/code] to remain in the current state.
 func process_input(_event: InputEvent) -> C3State:
-    return null
+	return null
 
 
 ## Called once per rendered frame while this state is active.
@@ -50,7 +50,7 @@ func process_input(_event: InputEvent) -> C3State:
 ## Return a [C3State] to request a transition to that state.
 ## Return [code]null[/code] to remain in the current state.
 func process_frame(_delta: float) -> C3State:
-    return null
+	return null
 
 
 ## Called once per physics tick while this state is active.
@@ -58,4 +58,4 @@ func process_frame(_delta: float) -> C3State:
 ## Return a [C3State] to request a transition to that state.
 ## Return [code]null[/code] to remain in the current state.
 func process_physics(_delta: float) -> C3State:
-    return null
+	return null

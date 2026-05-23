@@ -5,4 +5,4 @@ class_name TrafficLightDemo
 @onready var label: Label = $TrafficLightLabel
 
 func _ready() -> void:
-    state_machine.init(self)
+	state_machine.init(self)

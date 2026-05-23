@@ -11,21 +11,21 @@ var elapsed_time := 0.0
 
 # We could just use `context`, but it's nice to have a typed `demo` interface.
 var demo: TrafficLightDemo:
-    get: return context as TrafficLightDemo
+	get: return context as TrafficLightDemo
 
 func enter(_from: C3State) -> void:
-    # Even if you override this method, you can still get this behavior by
-    # calling `super()` on the inheriting class.
-    demo.label.add_theme_color_override("font_color", color)
+	# Even if you override this method, you can still get this behavior by
+	# calling `super()` on the inheriting class.
+	demo.label.add_theme_color_override("font_color", color)
 
 func exit() -> void:
-    pass
+	pass
 
 func process_input(_event: InputEvent) -> BaseLightState:
-    return null
+	return null
 
 func process_frame(_delta: float) -> BaseLightState:
-    return null
+	return null
 
 func process_physics(_delta: float) -> BaseLightState:
-    return null
+	return null

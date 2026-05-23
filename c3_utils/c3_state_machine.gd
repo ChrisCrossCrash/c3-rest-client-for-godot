@@ -41,73 +41,73 @@ var current_state: C3State
 ## Initializes the state machine by giving each child state a reference to the
 ## context node it belongs to and enter the default starting_state.
 func init(context: Node) -> void:
-    for child: C3State in get_children():
-        child.context = context
+	for child: C3State in get_children():
+		child.context = context
 
-    # Initialize to the default state
-    change_state(starting_state)
+	# Initialize to the default state
+	change_state(starting_state)
 
 
 ## Changes to the new state by first calling any exit logic on the current state.
 func change_state(new_state: C3State) -> void:
-    var previous_state := current_state
-    if current_state:
-        current_state.exit()
+	var previous_state := current_state
+	if current_state:
+		current_state.exit()
 
-    current_state = new_state
-    current_state.enter(previous_state)
+	current_state = new_state
+	current_state.enter(previous_state)
 
 
 func _physics_process(delta: float) -> void:
-    if Engine.is_editor_hint():
-        return
-    var new_state = current_state.process_physics(delta)
-    if new_state:
-        change_state(new_state)
+	if Engine.is_editor_hint():
+		return
+	var new_state = current_state.process_physics(delta)
+	if new_state:
+		change_state(new_state)
 
 
 func _unhandled_input(event: InputEvent) -> void:
-    var new_state = current_state.process_input(event)
-    if new_state:
-        change_state(new_state)
+	var new_state = current_state.process_input(event)
+	if new_state:
+		change_state(new_state)
 
 
 func _process(delta: float) -> void:
-    if Engine.is_editor_hint():
-        return
-    var new_state = current_state.process_frame(delta)
-    if new_state:
-        change_state(new_state)
+	if Engine.is_editor_hint():
+		return
+	var new_state = current_state.process_frame(delta)
+	if new_state:
+		change_state(new_state)
 
 
 func _get_configuration_warnings() -> PackedStringArray:
-    var warnings := PackedStringArray()
+	var warnings := PackedStringArray()
 
-    if not starting_state:
-        warnings.append("Starting state is not set. Assign a C3State to 'starting_state'.")
+	if not starting_state:
+		warnings.append("Starting state is not set. Assign a C3State to 'starting_state'.")
 
-    if get_child_count() == 0:
-        warnings.append(
-            "This state machine has no child states. "
-            + "Add one or more C3State nodes as children."
-        )
+	if get_child_count() == 0:
+		warnings.append(
+			"This state machine has no child states. "
+			+ "Add one or more C3State nodes as children."
+		)
 
-    for child in get_children(true):
-        if not child is C3State:
-            warnings.append(
-                "Child node '%s' is not a C3State instance." % child.name
-            )
+	for child in get_children(true):
+		if not child is C3State:
+			warnings.append(
+				"Child node '%s' is not a C3State instance." % child.name
+			)
 
-    return warnings
+	return warnings
 
 
 func _notification(what: int) -> void:
-    if not Engine.is_editor_hint():
-        return
+	if not Engine.is_editor_hint():
+		return
 
-    if what in [
-        NOTIFICATION_CHILD_ORDER_CHANGED,
-        NOTIFICATION_READY,
-        NOTIFICATION_EDITOR_PRE_SAVE,
-    ]:
-        update_configuration_warnings()
+	if what in [
+		NOTIFICATION_CHILD_ORDER_CHANGED,
+		NOTIFICATION_READY,
+		NOTIFICATION_EDITOR_PRE_SAVE,
+	]:
+		update_configuration_warnings()

@@ -34,65 +34,65 @@ var _pitch := 0.0
 
 
 func _ready() -> void:
-    if gravity == 0.0:
-        gravity = ProjectSettings.get_setting("physics/3d/default_gravity")
+	if gravity == 0.0:
+		gravity = ProjectSettings.get_setting("physics/3d/default_gravity")
 
-    Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
 func _unhandled_input(event: InputEvent) -> void:
-    if event is InputEventMouseMotion:
-        _rotate_camera(event.relative)
+	if event is InputEventMouseMotion:
+		_rotate_camera(event.relative)
 
 
 ## Applies mouse-driven yaw and pitch rotation.
 ##
 ## `relative` is mouse motion in pixels.
 func _rotate_camera(relative: Vector2) -> void:
-    # Yaw
-    rotate_y(-relative.x * mouse_sensitivity)
+	# Yaw
+	rotate_y(-relative.x * mouse_sensitivity)
 
-    # Pitch
-    _pitch -= relative.y * mouse_sensitivity
-    _pitch = clamp(
-        _pitch,
-        deg_to_rad(-max_look_angle),
-        deg_to_rad(max_look_angle)
-    )
-    head.rotation.x = _pitch
+	# Pitch
+	_pitch -= relative.y * mouse_sensitivity
+	_pitch = clamp(
+		_pitch,
+		deg_to_rad(-max_look_angle),
+		deg_to_rad(max_look_angle)
+	)
+	head.rotation.x = _pitch
 
 
 ## Applies gravity, movement input, and moves the character.
 func _physics_process(delta: float) -> void:
-    _apply_gravity(delta)
-    _apply_movement()
-    move_and_slide()
+	_apply_gravity(delta)
+	_apply_movement()
+	move_and_slide()
 
 
 ## Applies downward acceleration when the player is airborne.
 func _apply_gravity(delta: float) -> void:
-    if not is_on_floor():
-        velocity.y -= gravity * delta
+	if not is_on_floor():
+		velocity.y -= gravity * delta
 
 
 ## Applies horizontal movement based on input actions.
 func _apply_movement() -> void:
-    var input_dir := Input.get_vector(
-        "move_left",
-        "move_right",
-        "move_forward",
-        "move_backward"
-    )
+	var input_dir := Input.get_vector(
+		"move_left",
+		"move_right",
+		"move_forward",
+		"move_backward"
+	)
 
-    var direction := transform.basis * Vector3(input_dir.x, 0, input_dir.y)
+	var direction := transform.basis * Vector3(input_dir.x, 0, input_dir.y)
 
-    var move_speed: float = walk_speed
-    if allow_running and Input.is_action_pressed("move_run"):
-        move_speed = run_speed
+	var move_speed: float = walk_speed
+	if allow_running and Input.is_action_pressed("move_run"):
+		move_speed = run_speed
 
-    if direction:
-        velocity.x = direction.x * move_speed
-        velocity.z = direction.z * move_speed
-    else:
-        velocity.x = move_toward(velocity.x, 0, move_speed)
-        velocity.z = move_toward(velocity.z, 0, move_speed)
+	if direction:
+		velocity.x = direction.x * move_speed
+		velocity.z = direction.z * move_speed
+	else:
+		velocity.x = move_toward(velocity.x, 0, move_speed)
+		velocity.z = move_toward(velocity.z, 0, move_speed)
