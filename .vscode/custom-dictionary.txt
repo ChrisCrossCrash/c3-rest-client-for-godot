@@ -2,6 +2,7 @@ autofree
 CAPSLOCK
 ceili
 centiseconds
+chatcmpl
 clampf
 cmdln
 cooldown
