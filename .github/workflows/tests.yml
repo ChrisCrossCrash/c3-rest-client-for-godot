@@ -17,9 +17,6 @@ jobs:
         with:
           version: 4.6.2-stable
 
-      - name: Install fonts
-        run: sudo apt-get install -y fonts-noto-core
-
       - name: Import project
         run: godot --headless --path . --import
 
