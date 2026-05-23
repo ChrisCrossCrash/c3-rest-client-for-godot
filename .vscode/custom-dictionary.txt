@@ -28,6 +28,7 @@ MEDIAPREVIOUS
 MEDIARECORD
 MEDIASTOP
 minf
+noto
 NUMLOCK
 onready
 randf
