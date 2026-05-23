@@ -1,7 +1,8 @@
 # C3 Godot Utils
-# v2.4.0
+# v2.5.0
 # File revision: 2026-05-23
 
+@tool
 class_name C3OpenAIClient
 extends Node
 ## General-purpose client for OpenAI-compatible HTTP APIs.
@@ -19,6 +20,8 @@ class ChatOptions:
 	var temperature: float = NAN
 	## Set to -1 to omit max_tokens from the request entirely.
 	var max_tokens: int = -1
+	## One or more sequences where generation stops. Leave empty to omit from the request.
+	var stop: PackedStringArray = PackedStringArray()
 
 
 ## The response returned by [method chat_completion].
@@ -68,6 +71,8 @@ func chat_completion(
 		body["temperature"] = opts.temperature
 	if opts.max_tokens != -1:
 		body["max_tokens"] = opts.max_tokens
+	if not opts.stop.is_empty():
+		body["stop"] = opts.stop[0] if opts.stop.size() == 1 else opts.stop
 	var response := await _http_post(
 		base_url + "/v1/chat/completions", body, _headers()
 	)
