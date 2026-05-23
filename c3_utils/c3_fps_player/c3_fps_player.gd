@@ -55,9 +55,7 @@ func _rotate_camera(relative: Vector2) -> void:
 	# Pitch
 	_pitch -= relative.y * mouse_sensitivity
 	_pitch = clamp(
-		_pitch,
-		deg_to_rad(-max_look_angle),
-		deg_to_rad(max_look_angle)
+		_pitch, deg_to_rad(-max_look_angle), deg_to_rad(max_look_angle)
 	)
 	head.rotation.x = _pitch
 
@@ -78,10 +76,7 @@ func _apply_gravity(delta: float) -> void:
 ## Applies horizontal movement based on input actions.
 func _apply_movement() -> void:
 	var input_dir := Input.get_vector(
-		"move_left",
-		"move_right",
-		"move_forward",
-		"move_backward"
+		"move_left", "move_right", "move_forward", "move_backward"
 	)
 
 	var direction := transform.basis * Vector3(input_dir.x, 0, input_dir.y)

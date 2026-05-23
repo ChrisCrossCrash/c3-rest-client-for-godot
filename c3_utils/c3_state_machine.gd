@@ -32,7 +32,6 @@ extends Node
 ## This script is safe to run in the editor and provides configuration
 ## warnings when misconfigured.
 
-
 @export var starting_state: C3State
 
 var current_state: C3State
@@ -84,12 +83,16 @@ func _get_configuration_warnings() -> PackedStringArray:
 	var warnings := PackedStringArray()
 
 	if not starting_state:
-		warnings.append("Starting state is not set. Assign a C3State to 'starting_state'.")
+		warnings.append(
+			"Starting state is not set. Assign a C3State to 'starting_state'."
+		)
 
 	if get_child_count() == 0:
 		warnings.append(
-			"This state machine has no child states. "
-			+ "Add one or more C3State nodes as children."
+			(
+				"This state machine has no child states. "
+				+ "Add one or more C3State nodes as children."
+			)
 		)
 
 	for child in get_children(true):

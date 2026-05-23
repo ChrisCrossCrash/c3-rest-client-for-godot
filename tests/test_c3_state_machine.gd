@@ -2,6 +2,7 @@ extends GutTest
 
 # --- Helpers ------------------------------------------------------------
 
+
 ## Returns true if any warning string contains the given substring.
 func _warnings_contain(warnings: PackedStringArray, needle: String) -> bool:
 	for w in warnings:
@@ -9,7 +10,9 @@ func _warnings_contain(warnings: PackedStringArray, needle: String) -> bool:
 			return true
 	return false
 
+
 # --- Tests --------------------------------------------------------------
+
 
 ## Minimal spy state that records calls and can request a transition.
 class SpyState:
@@ -184,7 +187,9 @@ func test_enter_receives_null_from_on_init() -> void:
 	sm.init(ctx)
 
 	assert_eq(a.entered, 1)
-	assert_null(a.last_from, "enter() should receive null when no previous state exists")
+	assert_null(
+		a.last_from, "enter() should receive null when no previous state exists"
+	)
 
 
 func test_enter_receives_previous_state_as_from() -> void:
@@ -199,4 +204,6 @@ func test_enter_receives_previous_state_as_from() -> void:
 	sm.change_state(a)
 	sm.change_state(b)
 
-	assert_eq(b.last_from, a, "enter() should receive the outgoing state as 'from'")
+	assert_eq(
+		b.last_from, a, "enter() should receive the outgoing state as 'from'"
+	)

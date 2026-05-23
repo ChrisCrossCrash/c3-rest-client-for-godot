@@ -13,7 +13,6 @@ extends Node
 ## Subclasses should override one or more lifecycle or processing methods
 ## to implement custom behavior.
 
-
 ## Assigned by the parent C3StateMachine and typically
 ## refers to the node being controlled by the state machine.
 var context: Node

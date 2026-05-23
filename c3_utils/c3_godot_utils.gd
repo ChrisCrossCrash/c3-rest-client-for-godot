@@ -32,6 +32,7 @@ const _MOUSE_WHEEL_BUTTONS := [
 	MOUSE_BUTTON_WHEEL_RIGHT,
 ]
 
+
 ## Clamps a 3D input vector from a cube-shaped range to a unit sphere.[br][br]
 ##
 ## The input vector is assumed to come from a cube domain (each component in the
@@ -45,7 +46,9 @@ const _MOUSE_WHEEL_BUTTONS := [
 ## This function applies radial deadzone handling and length clamping, but does
 ## not perform a true cube-to-sphere remapping. Diagonal directions are preserved,
 ## and only the vector’s magnitude is modified.
-static func clamp_cube_vector_to_unit_sphere(v: Vector3, deadzone: float = 0.0) -> Vector3:
+static func clamp_cube_vector_to_unit_sphere(
+	v: Vector3, deadzone: float = 0.0
+) -> Vector3:
 	var v_len := v.length()
 
 	# Avoid 0/0 and match "less than or equal" deadzone behavior.
@@ -83,9 +86,18 @@ static func get_vector3(
 	deadzone: float = 0.1
 ) -> Vector3:
 	var v := Vector3(
-		Input.get_action_raw_strength(positive_x) - Input.get_action_raw_strength(negative_x),
-		Input.get_action_raw_strength(positive_y) - Input.get_action_raw_strength(negative_y),
-		Input.get_action_raw_strength(positive_z) - Input.get_action_raw_strength(negative_z)
+		(
+			Input.get_action_raw_strength(positive_x)
+			- Input.get_action_raw_strength(negative_x)
+		),
+		(
+			Input.get_action_raw_strength(positive_y)
+			- Input.get_action_raw_strength(negative_y)
+		),
+		(
+			Input.get_action_raw_strength(positive_z)
+			- Input.get_action_raw_strength(negative_z)
+		)
 	)
 	return clamp_cube_vector_to_unit_sphere(v, deadzone)
 

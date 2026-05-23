@@ -81,7 +81,7 @@ class TestCubeVectorToSphere:
 		# For axis-aligned vectors, the function should behave like:
 		# output_len = inverse_lerp(deadzone, 1, input_len)
 		var deadzone := 0.2
-		var v := Vector3(0.0, 0.0, 0.6) # len=0.6
+		var v := Vector3(0.0, 0.0, 0.6)  # len=0.6
 		var result := C3Utils.clamp_cube_vector_to_unit_sphere(v, deadzone)
 
 		var expected_len := inverse_lerp(deadzone, 1.0, 0.6)
@@ -127,7 +127,9 @@ class TestIsAnyKey:
 
 	# --- Helpers ---
 
-	func _make_key_event(keycode: int, pressed := true, echo := false) -> InputEventKey:
+	func _make_key_event(
+		keycode: int, pressed := true, echo := false
+	) -> InputEventKey:
 		var event := InputEventKey.new()
 		event.keycode = keycode as Key
 		event.pressed = pressed
@@ -201,13 +203,23 @@ class TestIsAnyKey:
 	func test_media_keys_excluded_even_with_include_modifiers() -> void:
 		# Media keys should remain excluded regardless of the modifier flag.
 		for keycode in [
-			KEY_VOLUMEDOWN, KEY_VOLUMEMUTE, KEY_VOLUMEUP,
-			KEY_MEDIAPLAY, KEY_MEDIASTOP, KEY_MEDIAPREVIOUS,
-			KEY_MEDIANEXT, KEY_MEDIARECORD,
+			KEY_VOLUMEDOWN,
+			KEY_VOLUMEMUTE,
+			KEY_VOLUMEUP,
+			KEY_MEDIAPLAY,
+			KEY_MEDIASTOP,
+			KEY_MEDIAPREVIOUS,
+			KEY_MEDIANEXT,
+			KEY_MEDIARECORD,
 		]:
 			var event := _make_key_event(keycode)
-			assert_false(C3Utils.is_any_key(event, true),
-				"Media key %d should not count even with include_modifiers=true" % keycode)
+			assert_false(
+				C3Utils.is_any_key(event, true),
+				(
+					"Media key %d should not count even with include_modifiers=true"
+					% keycode
+				)
+			)
 
 	# --- Modifier keys: excluded by default, included when requested ---
 
@@ -229,21 +241,38 @@ class TestIsAnyKey:
 
 	func test_all_modifiers_excluded_by_default() -> void:
 		for keycode in [
-			KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_META,
-			KEY_CAPSLOCK, KEY_NUMLOCK, KEY_SCROLLLOCK,
+			KEY_SHIFT,
+			KEY_CTRL,
+			KEY_ALT,
+			KEY_META,
+			KEY_CAPSLOCK,
+			KEY_NUMLOCK,
+			KEY_SCROLLLOCK,
 		]:
 			var event := _make_key_event(keycode)
-			assert_false(C3Utils.is_any_key(event),
-				"Modifier key %d should be excluded by default" % keycode)
+			assert_false(
+				C3Utils.is_any_key(event),
+				"Modifier key %d should be excluded by default" % keycode
+			)
 
 	func test_all_modifiers_count_when_included() -> void:
 		for keycode in [
-			KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_META,
-			KEY_CAPSLOCK, KEY_NUMLOCK, KEY_SCROLLLOCK,
+			KEY_SHIFT,
+			KEY_CTRL,
+			KEY_ALT,
+			KEY_META,
+			KEY_CAPSLOCK,
+			KEY_NUMLOCK,
+			KEY_SCROLLLOCK,
 		]:
 			var event := _make_key_event(keycode)
-			assert_true(C3Utils.is_any_key(event, true),
-				"Modifier key %d should count when include_modifiers=true" % keycode)
+			assert_true(
+				C3Utils.is_any_key(event, true),
+				(
+					"Modifier key %d should count when include_modifiers=true"
+					% keycode
+				)
+			)
 
 	func test_regular_key_counts_with_include_modifiers_true() -> void:
 		# Sanity: include_modifiers=true should not break regular keys.
@@ -290,12 +319,16 @@ class TestIsAnyKey:
 
 	func test_all_mouse_wheel_directions_excluded() -> void:
 		for button_index in [
-			MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN,
-			MOUSE_BUTTON_WHEEL_LEFT, MOUSE_BUTTON_WHEEL_RIGHT,
+			MOUSE_BUTTON_WHEEL_UP,
+			MOUSE_BUTTON_WHEEL_DOWN,
+			MOUSE_BUTTON_WHEEL_LEFT,
+			MOUSE_BUTTON_WHEEL_RIGHT,
 		]:
 			var event := _make_mouse_wheel_event(button_index)
-			assert_false(C3Utils.is_any_key(event),
-				"Mouse wheel button %d should not count" % button_index)
+			assert_false(
+				C3Utils.is_any_key(event),
+				"Mouse wheel button %d should not count" % button_index
+			)
 
 	# --- Unrelated event types: should not count ---
 
