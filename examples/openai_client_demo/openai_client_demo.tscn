@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://dkpj4irruerkf"]
+
+[ext_resource type="Script" uid="uid://7wumxmcnfuwb" path="res://examples/openai_client_demo/openai_client_demo.gd" id="1_pxfbr"]
+[ext_resource type="Script" uid="uid://cm0f1gy545fc6" path="res://c3_utils/c3_openai_client/c3_openai_client.gd" id="2_pxfbr"]
+
+[node name="OpenaiClientDemo" type="Control" unique_id=575085511]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_pxfbr")
+
+[node name="C3OpenAIClient" type="Node" parent="." unique_id=2071602032]
+script = ExtResource("2_pxfbr")
+metadata/_custom_type_script = "uid://cm0f1gy545fc6"

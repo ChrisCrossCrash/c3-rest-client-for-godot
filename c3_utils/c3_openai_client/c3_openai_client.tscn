@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://b0en8jycd6b2p"]
+
+[ext_resource type="Script" uid="uid://cm0f1gy545fc6" path="res://c3_utils/c3_openai_client/c3_openai_client.gd" id="1_cyyis"]
+
+[node name="C3OpenAIClient" type="Node" unique_id=1472510759]
+script = ExtResource("1_cyyis")
