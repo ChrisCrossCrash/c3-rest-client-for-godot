@@ -1,5 +1,5 @@
 # C3 Godot Utils
-# v2.3.0
+# v2.4.0
 # File revision: 2026-05-23
 
 class_name C3OpenAIClient
@@ -126,6 +126,32 @@ static func make_assistant_msg(content: String) -> Dictionary:
 ## [code]{"role": "system", "content": content}[/code]
 static func make_system_msg(content: String) -> Dictionary:
 	return {"role": "system", "content": content}
+
+
+## Constructs a text content part for use with [method make_user_msg_with_parts]. [br]
+## Returns:[br]
+## [code]{"type": "text", "text": text}[/code]
+static func make_part_text(text: String) -> Dictionary:
+	return {"type": "text", "text": text}
+
+
+## Constructs an image URL content part for use with [method make_user_msg_with_parts]. [br]
+## [param url] may be an [code]https://[/code] URL or a [code]data:[/code] URI
+## (e.g. [code]"data:image/png;base64,..."[/code]). [br]
+## [param detail] controls resolution sampling: [code]"auto"[/code] (default),
+## [code]"low"[/code], or [code]"high"[/code]. [br]
+## Returns:[br]
+## [code]{"type": "image_url", "image_url": {"url": url, "detail": detail}}[/code]
+static func make_part_image_url(url: String, detail: String = "auto") -> Dictionary:
+	return {"type": "image_url", "image_url": {"url": url, "detail": detail}}
+
+
+## Constructs a user message whose content is an array of content parts
+## built with [method make_part_text] and [method make_part_image_url]. [br]
+## Returns:[br]
+## [code]{"role": "user", "content": parts}[/code]
+static func make_user_msg_with_parts(parts: Array) -> Dictionary:
+	return {"role": "user", "content": parts}
 
 
 ## Internal HTTP POST method. Can be overridden in tests.
