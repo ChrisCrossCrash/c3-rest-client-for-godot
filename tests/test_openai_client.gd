@@ -1,11 +1,11 @@
 extends GutTest
 
-
 ## Test double for [C3OpenAIClient] that bypasses real HTTP requests.
 ## Set [member preset_response] before calling any method that triggers a request.
 ## Inspect [member request_log] after the call to assert which endpoints were called
 ## and with what bodies. Each entry is:[br] [code]{"method": String, "url": String, "body": Variant, "headers": PackedStringArray}[/code]
 ## [br]where [code]body[/code] is [code]null[/code] for GET requests and a [Dictionary] for POST requests.
+@warning_ignore("missing_tool")
 class TestableClient extends C3OpenAIClient:
 	## The response returned by [method _http_get] and [method _http_post]. Defaults to an empty success.
 	var preset_response: Dictionary = {"ok": true, "body": PackedByteArray()}
@@ -26,6 +26,27 @@ class TestableClient extends C3OpenAIClient:
 		request_log.append(
 			{"method": "POST", "url": url, "body": body, "headers": headers}
 		)
+		return preset_response
+
+	func _http_post_multipart(
+		url: String,
+		form_fields: Dictionary,
+		file_field: String,
+		file_bytes: PackedByteArray,
+		filename: String,
+		file_content_type: String,
+		headers: PackedStringArray
+	) -> Dictionary:
+		request_log.append({
+			"method": "POST_MULTIPART",
+			"url": url,
+			"form_fields": form_fields,
+			"file_field": file_field,
+			"file_bytes": file_bytes,
+			"filename": filename,
+			"file_content_type": file_content_type,
+			"headers": headers,
+		})
 		return preset_response
 
 
@@ -151,13 +172,23 @@ class TestMessageHelpers extends GutTest:
 	func test_make_part_image_url_default_detail() -> void:
 		assert_eq(
 			C3OpenAIClient.make_part_image_url("data:image/png;base64,abc"),
-			{"type": "image_url", "image_url": {"url": "data:image/png;base64,abc", "detail": "auto"}}
+			{
+				"type": "image_url",
+				"image_url":
+				{"url": "data:image/png;base64,abc", "detail": "auto"}
+			}
 		)
 
 	func test_make_part_image_url_custom_detail() -> void:
 		assert_eq(
-			C3OpenAIClient.make_part_image_url("data:image/png;base64,abc", "high"),
-			{"type": "image_url", "image_url": {"url": "data:image/png;base64,abc", "detail": "high"}}
+			C3OpenAIClient.make_part_image_url(
+				"data:image/png;base64,abc", "high"
+			),
+			{
+				"type": "image_url",
+				"image_url":
+				{"url": "data:image/png;base64,abc", "detail": "high"}
+			}
 		)
 
 	func test_make_user_msg_with_parts() -> void:
@@ -196,6 +227,7 @@ class TestChatCompletion extends GutTest:
 		model: String = "gpt-4o",
 		refusal: Variant = null
 	) -> String:
+		var content_to_send = null if refusal != null else (content as Variant)
 		return JSON.stringify(
 			{
 				"id": "chatcmpl-abc",
@@ -209,7 +241,7 @@ class TestChatCompletion extends GutTest:
 						"message":
 						{
 							"role": "assistant",
-							"content": null if refusal != null else (content as Variant),
+							"content": content_to_send,
 							"refusal": refusal
 						},
 						"finish_reason": finish_reason
@@ -465,3 +497,252 @@ class TestHeaders extends GutTest:
 		var headers := client._headers()
 		for h in headers:
 			assert_false(h.begins_with("Authorization:"))
+
+
+class TestSpeechOptions extends GutTest:
+	func test_default_model() -> void:
+		assert_eq(C3OpenAIClient.SpeechOptions.new().model, "")
+
+	func test_default_voice() -> void:
+		assert_eq(C3OpenAIClient.SpeechOptions.new().voice, "")
+
+	func test_default_response_format() -> void:
+		assert_eq(C3OpenAIClient.SpeechOptions.new().response_format, "mp3")
+
+
+class TestTranscriptionOptions extends GutTest:
+	func test_default_model() -> void:
+		assert_eq(C3OpenAIClient.TranscriptionOptions.new().model, "")
+
+	func test_default_language() -> void:
+		assert_eq(C3OpenAIClient.TranscriptionOptions.new().language, "")
+
+
+class TestCreateSpeech extends GutTest:
+	var client: TestableClient
+
+	func before_each() -> void:
+		client = TestableClient.new()
+		add_child_autofree(client)
+
+	## Real MP3 bytes are required because AudioStreamMP3 validates data on assignment.
+	func mp3_bytes() -> PackedByteArray:
+		return (load("res://tests/data/demo-speech.mp3") as AudioStreamMP3).data
+
+	func ok_mp3() -> Dictionary:
+		return {"ok": true, "body": mp3_bytes()}
+
+	func test_returns_audio_stream() -> void:
+		client.preset_response = ok_mp3()
+		var result := await client.create_speech("Hello")
+		assert_is(result, AudioStream)
+
+	func test_returns_audio_stream_mp3_by_default() -> void:
+		client.preset_response = ok_mp3()
+		var result := await client.create_speech("Hello")
+		assert_is(result, AudioStreamMP3)
+
+	func test_uses_correct_endpoint() -> void:
+		client.base_url = "http://example.com"
+		client.preset_response = ok_mp3()
+		await client.create_speech("Hello")
+		assert_eq(
+			client.request_log[0]["url"], "http://example.com/v1/audio/speech"
+		)
+
+	func test_makes_exactly_one_request() -> void:
+		client.preset_response = ok_mp3()
+		await client.create_speech("Hello")
+		assert_eq(client.request_log.size(), 1)
+
+	func test_sends_input_in_body() -> void:
+		client.preset_response = ok_mp3()
+		await client.create_speech("Test speech text")
+		assert_eq(client.request_log[0]["body"]["input"], "Test speech text")
+
+	func test_sends_model_in_body() -> void:
+		client.preset_response = ok_mp3()
+		var opts := C3OpenAIClient.SpeechOptions.new()
+		opts.model = "kokoro-82m"
+		await client.create_speech("Hello", opts)
+		assert_eq(client.request_log[0]["body"]["model"], "kokoro-82m")
+
+	func test_sends_voice_in_body() -> void:
+		client.preset_response = ok_mp3()
+		var opts := C3OpenAIClient.SpeechOptions.new()
+		opts.voice = "af_heart"
+		await client.create_speech("Hello", opts)
+		assert_eq(client.request_log[0]["body"]["voice"], "af_heart")
+
+	func test_sends_response_format_in_body() -> void:
+		client.preset_response = ok_mp3()
+		var opts := C3OpenAIClient.SpeechOptions.new()
+		opts.response_format = "mp3"
+		await client.create_speech("Hello", opts)
+		assert_eq(client.request_log[0]["body"]["response_format"], "mp3")
+
+	func test_audio_stream_mp3_contains_response_bytes() -> void:
+		var real_mp3 := (
+			load("res://tests/data/demo-speech.mp3") as AudioStreamMP3
+		)
+		client.preset_response = {"ok": true, "body": real_mp3.data}
+		var result := await client.create_speech("Hello") as AudioStreamMP3
+		assert_eq(result.data, real_mp3.data)
+
+	func test_returns_null_on_network_error() -> void:
+		client.preset_response = {
+			"ok": false, "error": {"error": ERR_CANT_CONNECT}
+		}
+		var result := await client.create_speech("Hello")
+		assert_null(result)
+
+	func test_emits_request_failed_on_network_error() -> void:
+		client.preset_response = {
+			"ok": false, "error": {"error": ERR_CANT_CONNECT}
+		}
+		watch_signals(client)
+		await client.create_speech("Hello")
+		assert_signal_emitted(client, "request_failed")
+
+	func test_returns_null_on_http_failure() -> void:
+		client.preset_response = {
+			"ok": false,
+			"error": {"result": HTTPRequest.RESULT_CONNECTION_ERROR}
+		}
+		var result := await client.create_speech("Hello")
+		assert_null(result)
+
+	func test_emits_request_failed_on_http_failure() -> void:
+		client.preset_response = {
+			"ok": false,
+			"error": {"result": HTTPRequest.RESULT_CONNECTION_ERROR}
+		}
+		watch_signals(client)
+		await client.create_speech("Hello")
+		assert_signal_emitted(client, "request_failed")
+
+
+class TestCreateTranscription extends GutTest:
+	var client: TestableClient
+
+	func before_each() -> void:
+		client = TestableClient.new()
+		add_child_autofree(client)
+
+	func make_json_res(text: String) -> PackedByteArray:
+		return JSON.stringify({"text": text}).to_utf8_buffer()
+
+	func make_mp3_stream() -> AudioStreamMP3:
+		return load("res://tests/data/demo-speech.mp3") as AudioStreamMP3
+
+	func test_returns_transcription_response() -> void:
+		client.preset_response = {
+			"ok": true, "body": make_json_res("Hello world")
+		}
+		var result := await client.create_transcription(make_mp3_stream())
+		assert_is(result, C3OpenAIClient.TranscriptionResponse)
+
+	func test_text_is_populated() -> void:
+		client.preset_response = {
+			"ok": true, "body": make_json_res("Hello world")
+		}
+		var result := await client.create_transcription(make_mp3_stream())
+		assert_eq(result.text, "Hello world")
+
+	func test_uses_correct_endpoint() -> void:
+		client.base_url = "http://example.com"
+		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
+		await client.create_transcription(make_mp3_stream())
+		assert_eq(
+			client.request_log[0]["url"],
+			"http://example.com/v1/audio/transcriptions"
+		)
+
+	func test_makes_exactly_one_request() -> void:
+		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
+		await client.create_transcription(make_mp3_stream())
+		assert_eq(client.request_log.size(), 1)
+
+	func test_sends_model_as_form_field() -> void:
+		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
+		var opts := C3OpenAIClient.TranscriptionOptions.new()
+		opts.model = "whisper-large-v3"
+		await client.create_transcription(make_mp3_stream(), opts)
+		assert_eq(
+			client.request_log[0]["form_fields"]["model"], "whisper-large-v3"
+		)
+
+	func test_sends_language_when_set() -> void:
+		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
+		var opts := C3OpenAIClient.TranscriptionOptions.new()
+		opts.language = "en"
+		await client.create_transcription(make_mp3_stream(), opts)
+		assert_eq(client.request_log[0]["form_fields"]["language"], "en")
+
+	func test_omits_language_when_empty() -> void:
+		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
+		await client.create_transcription(make_mp3_stream())
+		assert_false(client.request_log[0]["form_fields"].has("language"))
+
+	func test_sends_file_field_named_file() -> void:
+		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
+		await client.create_transcription(make_mp3_stream())
+		assert_eq(client.request_log[0]["file_field"], "file")
+
+	func test_sends_mp3_bytes_as_file() -> void:
+		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
+		var stream := make_mp3_stream()
+		await client.create_transcription(stream)
+		assert_eq(client.request_log[0]["file_bytes"], stream.data)
+
+	func test_sends_mp3_content_type() -> void:
+		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
+		await client.create_transcription(make_mp3_stream())
+		assert_eq(client.request_log[0]["file_content_type"], "audio/mpeg")
+
+	func test_returns_null_on_network_error() -> void:
+		client.preset_response = {
+			"ok": false, "error": {"error": ERR_CANT_CONNECT}
+		}
+		var result := await client.create_transcription(make_mp3_stream())
+		assert_null(result)
+
+	func test_emits_request_failed_on_network_error() -> void:
+		client.preset_response = {
+			"ok": false, "error": {"error": ERR_CANT_CONNECT}
+		}
+		watch_signals(client)
+		await client.create_transcription(make_mp3_stream())
+		assert_signal_emitted(client, "request_failed")
+
+	func test_returns_null_on_http_failure() -> void:
+		client.preset_response = {
+			"ok": false,
+			"error": {"result": HTTPRequest.RESULT_CONNECTION_ERROR}
+		}
+		var result := await client.create_transcription(make_mp3_stream())
+		assert_null(result)
+
+	func test_emits_request_failed_on_http_failure() -> void:
+		client.preset_response = {
+			"ok": false,
+			"error": {"result": HTTPRequest.RESULT_CONNECTION_ERROR}
+		}
+		watch_signals(client)
+		await client.create_transcription(make_mp3_stream())
+		assert_signal_emitted(client, "request_failed")
+
+	func test_returns_null_on_invalid_json() -> void:
+		client.preset_response = {
+			"ok": true, "body": "not json".to_utf8_buffer()
+		}
+		var result := await client.create_transcription(make_mp3_stream())
+		assert_null(result)
+
+	func test_emits_request_failed_on_invalid_json() -> void:
+		client.preset_response = {
+			"ok": true, "body": "not json".to_utf8_buffer()
+		}
+		watch_signals(client)
+		await client.create_transcription(make_mp3_stream())
+		assert_signal_emitted(client, "request_failed")

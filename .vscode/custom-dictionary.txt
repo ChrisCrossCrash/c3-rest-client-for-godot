@@ -19,6 +19,7 @@ isdisjoint
 issubset
 issuperset
 Joypad
+Kokoro
 lerp
 lihop
 maxf
@@ -30,11 +31,13 @@ MEDIASTOP
 minf
 noto
 NUMLOCK
+ONNX
 onready
 randf
 randfn
 respawn
 SCROLLLOCK
+speaches
 stylebox
 subdirs
 tscn

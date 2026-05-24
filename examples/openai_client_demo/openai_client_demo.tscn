@@ -12,6 +12,13 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_pxfbr")
 
-[node name="C3OpenAIClient" type="Node" parent="." unique_id=2071602032]
+[node name="C3OpenAIClientLLM" type="Node" parent="." unique_id=2071602032]
 script = ExtResource("2_pxfbr")
 metadata/_custom_type_script = "uid://cm0f1gy545fc6"
+
+[node name="C3OpenAIClientVoice" type="Node" parent="." unique_id=-1212254153]
+script = ExtResource("2_pxfbr")
+base_url = "http://127.0.0.1:8000"
+metadata/_custom_type_script = "uid://cm0f1gy545fc6"
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="." unique_id=-201143042]
