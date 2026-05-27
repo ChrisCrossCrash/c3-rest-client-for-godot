@@ -1,6 +1,6 @@
 # C3 Godot Utils
-# v2.6.0
-# File revision: 2026-05-23
+# v2.7.0
+# File revision: 2026-05-27
 
 @tool
 class_name C3OpenAIClient
@@ -17,9 +17,12 @@ signal request_failed(error: Dictionary)
 class SpeechOptions:
 	var model: String = ""
 	var voice: String = ""
-	## Audio format returned by the server. [code]"mp3"[/code] and [code]"ogg"[/code]
-	## (Ogg Vorbis) are supported. Defaults to [code]"mp3"[/code].
-	var response_format: String = "mp3"
+	## Sample rate of the [code]"pcm"[/code] response. Must match the server's
+	## output. OpenAI and speaches both default to 24000 Hz.
+	var pcm_sample_rate: int = 24000
+	## Whether the [code]"pcm"[/code] response is stereo. Most TTS servers
+	## output mono. Set to [code]true[/code] if the server produces stereo PCM.
+	var pcm_stereo: bool = false
 
 
 ## The response returned by [method create_transcription].
@@ -182,9 +185,10 @@ static func make_user_msg_with_parts(parts: Array) -> Dictionary:
 	return {"role": "user", "content": parts}
 
 
-## Sends a text-to-speech request and returns the audio as an [AudioStream].
-## Supports [code]"mp3"[/code] and [code]"ogg"[/code] response formats (set via
-## [member SpeechOptions.response_format]). Defaults to [code]"mp3"[/code].
+## Sends a text-to-speech request and returns the audio as an [AudioStreamWAV].
+## The server must return raw 16-bit signed little-endian PCM (request format
+## [code]"pcm"[/code]). Use [member SpeechOptions.pcm_sample_rate] and
+## [member SpeechOptions.pcm_stereo] to match the server's output. [br]
 ## Returns [code]null[/code] and emits [signal request_failed] on failure.
 func create_speech(input: String, opts: SpeechOptions = null) -> AudioStream:
 	if opts == null:
@@ -193,7 +197,7 @@ func create_speech(input: String, opts: SpeechOptions = null) -> AudioStream:
 		"model": opts.model,
 		"input": input,
 		"voice": opts.voice,
-		"response_format": opts.response_format,
+		"response_format": "pcm",
 	}
 	var response := await _http_post(
 		base_url + "/v1/audio/speech", body, _headers()
@@ -201,20 +205,16 @@ func create_speech(input: String, opts: SpeechOptions = null) -> AudioStream:
 	if not response["ok"]:
 		request_failed.emit(response["error"])
 		return null
-	var audio_bytes: PackedByteArray = response["body"]
-	if opts.response_format == "ogg":
-		var ogg := AudioStreamOggVorbis.load_from_buffer(audio_bytes)
-		if ogg == null:
-			request_failed.emit({"message": "Failed to decode OGG audio data."})
-			return null
-		return ogg
-	var mp3 := AudioStreamMP3.new()
-	mp3.data = audio_bytes
-	return mp3
+	var wav := AudioStreamWAV.new()
+	wav.data = response["body"]
+	wav.stereo = opts.pcm_stereo
+	wav.mix_rate = opts.pcm_sample_rate
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	return wav
 
 
 ## Transcribes an [AudioStream] and returns the result.
-## Only [AudioStreamMP3] is currently supported as input.
+## Supports [AudioStreamMP3] and [AudioStreamWAV] as input.
 ## Returns [code]null[/code] and emits [signal request_failed] on failure.
 func create_transcription(
 	audio: AudioStream, opts: TranscriptionOptions = null
@@ -228,9 +228,13 @@ func create_transcription(
 		audio_bytes = (audio as AudioStreamMP3).data
 		filename = "audio.mp3"
 		file_content_type = "audio/mpeg"
+	elif audio is AudioStreamWAV:
+		audio_bytes = _audio_stream_wav_to_bytes(audio as AudioStreamWAV)
+		filename = "audio.wav"
+		file_content_type = "audio/wav"
 	else:
 		push_error(
-			"C3OpenAIClient: Unsupported AudioStream type. Only AudioStreamMP3 is supported."
+			"C3OpenAIClient: Unsupported AudioStream type. Only AudioStreamMP3 and AudioStreamWAV are supported."
 		)
 		return null
 	var form_fields: Dictionary = {"model": opts.model}
@@ -262,6 +266,36 @@ func create_transcription(
 	)
 	res.text = text if text is String else ""
 	return res
+
+
+func _audio_stream_wav_to_bytes(wav: AudioStreamWAV) -> PackedByteArray:
+	var pcm := wav.data
+	var num_channels := 2 if wav.stereo else 1
+	# AudioStreamWAV.format: FORMAT_8_BIT = 0, FORMAT_16_BIT = 1, FORMAT_IMA_ADPCM = 2
+	var bits_per_sample := 8 if wav.format == 0 else 16
+	var bytes_per_sample := bits_per_sample >> 3
+	var byte_rate := wav.mix_rate * num_channels * bytes_per_sample
+	var block_align := num_channels * bytes_per_sample
+	var data_size := pcm.size()
+	var header := PackedByteArray()
+	header.resize(44)
+	# RIFF chunk
+	header.encode_u8(0, 0x52); header.encode_u8(1, 0x49); header.encode_u8(2, 0x46); header.encode_u8(3, 0x46)  # "RIFF"
+	header.encode_u32(4, 36 + data_size)  # file size - 8
+	header.encode_u8(8, 0x57); header.encode_u8(9, 0x41); header.encode_u8(10, 0x56); header.encode_u8(11, 0x45)  # "WAVE"
+	# fmt chunk
+	header.encode_u8(12, 0x66); header.encode_u8(13, 0x6D); header.encode_u8(14, 0x74); header.encode_u8(15, 0x20)  # "fmt "
+	header.encode_u32(16, 16)  # chunk size
+	header.encode_u16(20, 1)  # PCM format
+	header.encode_u16(22, num_channels)
+	header.encode_u32(24, wav.mix_rate)
+	header.encode_u32(28, byte_rate)
+	header.encode_u16(32, block_align)
+	header.encode_u16(34, bits_per_sample)
+	# data chunk
+	header.encode_u8(36, 0x64); header.encode_u8(37, 0x61); header.encode_u8(38, 0x74); header.encode_u8(39, 0x61)  # "data"
+	header.encode_u32(40, data_size)
+	return header + pcm
 
 
 ## Internal HTTP POST method. Can be overridden in tests.

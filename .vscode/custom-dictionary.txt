@@ -1,3 +1,4 @@
+ADPCM
 autofree
 CAPSLOCK
 ceili
@@ -7,6 +8,7 @@ clampf
 cmdln
 cooldown
 deadzone
+deepdml
 elif
 floori
 fmod

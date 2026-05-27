@@ -1,5 +1,5 @@
 # C3 Godot Utils
-# v2.6.0
+# v2.7.0
 # File revision: 2026-04-28
 
 class_name C3State

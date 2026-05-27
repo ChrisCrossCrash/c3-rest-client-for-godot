@@ -18,6 +18,10 @@ config/name="C3 Godot Utils"
 run/main_scene="uid://c7pk0o7hqs5cv"
 config/features=PackedStringArray("4.6", "Forward Plus")
 
+[audio]
+
+driver/enable_input=true
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/gut/plugin.cfg")

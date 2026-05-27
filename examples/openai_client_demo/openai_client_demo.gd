@@ -4,6 +4,8 @@ extends Control
 @onready var client_llm: C3OpenAIClient = $C3OpenAIClientLLM
 @onready var client_voice: C3OpenAIClient = $C3OpenAIClientVoice
 
+@onready var audio_stream_player: AudioStreamPlayer = $AudioStreamPlayer
+
 
 func _ready() -> void:
 	var llm_ids := await client_llm.get_models()
@@ -19,6 +21,10 @@ func _ready() -> void:
 	var opts := C3OpenAIClient.ChatOptions.new()
 	opts.model = llm_ids[0]
 	var completion := await client_llm.chat_completion(messages, opts)
+	if completion == null:
+		# Something went wrong.
+		# _on_llm_request_failed() should handle the error.
+		return
 	print(completion.content)
 
 	# --- Vision (LLM server) ---
@@ -36,17 +42,22 @@ func _ready() -> void:
 	var vision_completion := await client_llm.chat_completion(
 		vision_messages, opts
 	)
+	if vision_completion == null:
+		# Something went wrong.
+		# _on_llm_request_failed() should handle the error.
+		return
 	print(vision_completion.content)
 
 	# --- Text-to-speech (voice server) ---
 	var speech_opts := C3OpenAIClient.SpeechOptions.new()
 	speech_opts.model = "speaches-ai/Kokoro-82M-v1.0-ONNX-fp16"
 	speech_opts.voice = "af_heart"
-	var audio: AudioStream = await client_voice.create_speech(
-		completion.content, speech_opts
-	)
-	$AudioStreamPlayer.stream = audio
-	$AudioStreamPlayer.play()
+	var stream: AudioStream = await client_voice.create_speech(completion.content, speech_opts)
+	if stream == null:
+		return
+	audio_stream_player.stream = stream
+	audio_stream_player.play()
+	await audio_stream_player.finished
 
 	# --- Speech-to-text (voice server) ---
 	var clip := load("res://examples/openai_client_demo/demo-speech.mp3")
@@ -55,9 +66,18 @@ func _ready() -> void:
 	var transcription := await client_voice.create_transcription(
 		clip, transcribe_opts
 	)
+	if transcription == null:
+		# Something went wrong.
+		# _on_voice_request_failed() should handle the error.
+		return
 	print(transcription.text)
-
-	await get_tree().process_frame  # let output flush
-	if $AudioStreamPlayer.is_playing():
-		await $AudioStreamPlayer.finished
+	await audio_stream_player.finished
 	get_tree().quit()
+
+
+func _on_llm_request_failed(error: Dictionary) -> void:
+	print(error)
+
+
+func _on_voice_request_failed(error: Dictionary) -> void:
+	print(error)

@@ -17,6 +17,7 @@
   "ignorePaths": [
     "addons/**",
     "*.tscn",
+    "*.tres",
     "*.uid",
     "*.godot",
     "*.import",

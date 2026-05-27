@@ -506,8 +506,11 @@ class TestSpeechOptions extends GutTest:
 	func test_default_voice() -> void:
 		assert_eq(C3OpenAIClient.SpeechOptions.new().voice, "")
 
-	func test_default_response_format() -> void:
-		assert_eq(C3OpenAIClient.SpeechOptions.new().response_format, "mp3")
+	func test_default_pcm_sample_rate() -> void:
+		assert_eq(C3OpenAIClient.SpeechOptions.new().pcm_sample_rate, 24000)
+
+	func test_default_pcm_stereo() -> void:
+		assert_false(C3OpenAIClient.SpeechOptions.new().pcm_stereo)
 
 
 class TestTranscriptionOptions extends GutTest:
@@ -525,69 +528,85 @@ class TestCreateSpeech extends GutTest:
 		client = TestableClient.new()
 		add_child_autofree(client)
 
-	## Real MP3 bytes are required because AudioStreamMP3 validates data on assignment.
-	func mp3_bytes() -> PackedByteArray:
-		return (load("res://tests/data/demo-speech.mp3") as AudioStreamMP3).data
-
-	func ok_mp3() -> Dictionary:
-		return {"ok": true, "body": mp3_bytes()}
+	func ok_pcm() -> Dictionary:
+		return {"ok": true, "body": PackedByteArray([0x00, 0x01, 0x02, 0x03])}
 
 	func test_returns_audio_stream() -> void:
-		client.preset_response = ok_mp3()
+		client.preset_response = ok_pcm()
 		var result := await client.create_speech("Hello")
 		assert_is(result, AudioStream)
 
-	func test_returns_audio_stream_mp3_by_default() -> void:
-		client.preset_response = ok_mp3()
+	func test_returns_audio_stream_wav_for_pcm_format() -> void:
+		client.preset_response = ok_pcm()
 		var result := await client.create_speech("Hello")
-		assert_is(result, AudioStreamMP3)
+		assert_is(result, AudioStreamWAV)
 
 	func test_uses_correct_endpoint() -> void:
 		client.base_url = "http://example.com"
-		client.preset_response = ok_mp3()
+		client.preset_response = ok_pcm()
 		await client.create_speech("Hello")
 		assert_eq(
 			client.request_log[0]["url"], "http://example.com/v1/audio/speech"
 		)
 
 	func test_makes_exactly_one_request() -> void:
-		client.preset_response = ok_mp3()
+		client.preset_response = ok_pcm()
 		await client.create_speech("Hello")
 		assert_eq(client.request_log.size(), 1)
 
 	func test_sends_input_in_body() -> void:
-		client.preset_response = ok_mp3()
+		client.preset_response = ok_pcm()
 		await client.create_speech("Test speech text")
 		assert_eq(client.request_log[0]["body"]["input"], "Test speech text")
 
 	func test_sends_model_in_body() -> void:
-		client.preset_response = ok_mp3()
+		client.preset_response = ok_pcm()
 		var opts := C3OpenAIClient.SpeechOptions.new()
 		opts.model = "kokoro-82m"
 		await client.create_speech("Hello", opts)
 		assert_eq(client.request_log[0]["body"]["model"], "kokoro-82m")
 
 	func test_sends_voice_in_body() -> void:
-		client.preset_response = ok_mp3()
+		client.preset_response = ok_pcm()
 		var opts := C3OpenAIClient.SpeechOptions.new()
 		opts.voice = "af_heart"
 		await client.create_speech("Hello", opts)
 		assert_eq(client.request_log[0]["body"]["voice"], "af_heart")
 
 	func test_sends_response_format_in_body() -> void:
-		client.preset_response = ok_mp3()
-		var opts := C3OpenAIClient.SpeechOptions.new()
-		opts.response_format = "mp3"
-		await client.create_speech("Hello", opts)
-		assert_eq(client.request_log[0]["body"]["response_format"], "mp3")
+		client.preset_response = ok_pcm()
+		await client.create_speech("Hello")
+		assert_eq(client.request_log[0]["body"]["response_format"], "pcm")
 
-	func test_audio_stream_mp3_contains_response_bytes() -> void:
-		var real_mp3 := (
-			load("res://tests/data/demo-speech.mp3") as AudioStreamMP3
-		)
-		client.preset_response = {"ok": true, "body": real_mp3.data}
-		var result := await client.create_speech("Hello") as AudioStreamMP3
-		assert_eq(result.data, real_mp3.data)
+	func test_pcm_stores_raw_bytes_as_data() -> void:
+		var raw := PackedByteArray([0xAA, 0xBB, 0xCC, 0xDD])
+		client.preset_response = {"ok": true, "body": raw}
+		var stream := await client.create_speech("Hello")
+		var result := stream as AudioStreamWAV
+		assert_eq(result.data, raw)
+
+	func test_pcm_uses_configured_sample_rate() -> void:
+		client.preset_response = ok_pcm()
+		var opts := C3OpenAIClient.SpeechOptions.new()
+		opts.pcm_sample_rate = 16000
+		var stream := await client.create_speech("Hello", opts)
+		var result := stream as AudioStreamWAV
+		assert_eq(result.mix_rate, 16000)
+
+	func test_pcm_uses_configured_stereo() -> void:
+		client.preset_response = ok_pcm()
+		var opts := C3OpenAIClient.SpeechOptions.new()
+		opts.pcm_stereo = true
+		var stream := await client.create_speech("Hello", opts)
+		var result := stream as AudioStreamWAV
+		assert_true(result.stereo)
+
+	func test_pcm_defaults_to_24000hz_mono() -> void:
+		client.preset_response = ok_pcm()
+		var stream := await client.create_speech("Hello")
+		var result := stream as AudioStreamWAV
+		assert_eq(result.mix_rate, 24000)
+		assert_false(result.stereo)
 
 	func test_returns_null_on_network_error() -> void:
 		client.preset_response = {
@@ -634,6 +653,14 @@ class TestCreateTranscription extends GutTest:
 
 	func make_mp3_stream() -> AudioStreamMP3:
 		return load("res://tests/data/demo-speech.mp3") as AudioStreamMP3
+
+	func make_wav_stream() -> AudioStreamWAV:
+		var stream := AudioStreamWAV.new()
+		stream.mix_rate = 44100
+		stream.stereo = false
+		stream.format = AudioStreamWAV.FORMAT_16_BITS
+		stream.data = PackedByteArray([0x00, 0x01, 0x02, 0x03])
+		return stream
 
 	func test_returns_transcription_response() -> void:
 		client.preset_response = {
@@ -699,6 +726,25 @@ class TestCreateTranscription extends GutTest:
 		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
 		await client.create_transcription(make_mp3_stream())
 		assert_eq(client.request_log[0]["file_content_type"], "audio/mpeg")
+
+	func test_sends_wav_bytes_as_file() -> void:
+		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
+		var stream := make_wav_stream()
+		await client.create_transcription(stream)
+		assert_eq(
+			client.request_log[0]["file_bytes"],
+			client._audio_stream_wav_to_bytes(stream)
+		)
+
+	func test_sends_wav_content_type() -> void:
+		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
+		await client.create_transcription(make_wav_stream())
+		assert_eq(client.request_log[0]["file_content_type"], "audio/wav")
+
+	func test_sends_wav_filename() -> void:
+		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
+		await client.create_transcription(make_wav_stream())
+		assert_eq(client.request_log[0]["filename"], "audio.wav")
 
 	func test_returns_null_on_network_error() -> void:
 		client.preset_response = {

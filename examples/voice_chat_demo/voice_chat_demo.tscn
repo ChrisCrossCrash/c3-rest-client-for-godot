@@ -1,0 +1,42 @@
+[gd_scene format=3 uid="uid://c3n6xhpr5h1gc"]
+
+[ext_resource type="Script" uid="uid://cdn5e8i12wr13" path="res://examples/voice_chat_demo/voice_chat_demo.gd" id="1_pn1jc"]
+[ext_resource type="Script" uid="uid://cm0f1gy545fc6" path="res://c3_utils/c3_openai_client/c3_openai_client.gd" id="2_0fapu"]
+
+[sub_resource type="AudioStreamMicrophone" id="AudioStreamMicrophone_pn1jc"]
+
+[node name="VoiceChatDemo" type="Control" unique_id=1242445655]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_pn1jc")
+
+[node name="Background" type="ColorRect" parent="." unique_id=629702617]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 1)
+
+[node name="MicPlayer" type="AudioStreamPlayer" parent="." unique_id=533992474]
+stream = SubResource("AudioStreamMicrophone_pn1jc")
+bus = &"Record"
+
+[node name="PlaybackPlayer" type="AudioStreamPlayer" parent="." unique_id=1444276396]
+
+[node name="C3OpenAIClientLLM" type="Node" parent="." unique_id=540063895]
+script = ExtResource("2_0fapu")
+metadata/_custom_type_script = "uid://cm0f1gy545fc6"
+
+[node name="C3OpenAIClientVoice" type="Node" parent="." unique_id=1594018998]
+script = ExtResource("2_0fapu")
+base_url = "http://127.0.0.1:8000"
+metadata/_custom_type_script = "uid://cm0f1gy545fc6"
+
+[connection signal="request_failed" from="C3OpenAIClientLLM" to="." method="_on_llm_client_request_failed"]
+[connection signal="request_failed" from="C3OpenAIClientVoice" to="." method="_on_voice_client_request_failed"]
