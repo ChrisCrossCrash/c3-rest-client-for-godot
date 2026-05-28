@@ -8,8 +8,11 @@ extends Control
 
 
 func _ready() -> void:
-	var llm_ids := await client_llm.get_models()
-	print(llm_ids)
+	var models_res := await client_llm.get_models()
+	if not models_res.ok:
+		print(models_res.error)
+		get_tree().quit()
+	print(models_res.ids)
 
 	# --- Chat (LLM server) ---
 	var messages = [
@@ -19,13 +22,12 @@ func _ready() -> void:
 		C3OpenAIClient.make_user_msg("What is the meaning of life?")
 	]
 	var opts := C3OpenAIClient.ChatOptions.new()
-	opts.model = llm_ids[0]
-	var completion := await client_llm.chat_completion(messages, opts)
-	if completion == null:
-		# Something went wrong.
-		# _on_llm_request_failed() should handle the error.
-		return
-	print(completion.content)
+	opts.model = models_res.ids[0]
+	var completion_res := await client_llm.chat_completion(messages, opts)
+	if not completion_res.ok:
+		print(completion_res.error)
+		get_tree().quit()
+	print(completion_res.content)
 
 	# --- Vision (LLM server) ---
 	var img := (
@@ -39,23 +41,23 @@ func _ready() -> void:
 			C3OpenAIClient.make_part_image_url("data:image/jpeg;base64," + b64),
 		])
 	]
-	var vision_completion := await client_llm.chat_completion(
+	var vision_completion_res := await client_llm.chat_completion(
 		vision_messages, opts
 	)
-	if vision_completion == null:
-		# Something went wrong.
-		# _on_llm_request_failed() should handle the error.
-		return
-	print(vision_completion.content)
+	if not vision_completion_res.ok:
+		print(vision_completion_res.error)
+		get_tree().quit()
+	print(vision_completion_res.content)
 
 	# --- Text-to-speech (voice server) ---
 	var speech_opts := C3OpenAIClient.SpeechOptions.new()
 	speech_opts.model = "speaches-ai/Kokoro-82M-v1.0-ONNX-fp16"
 	speech_opts.voice = "af_heart"
-	var stream: AudioStream = await client_voice.create_speech(completion.content, speech_opts)
-	if stream == null:
-		return
-	audio_stream_player.stream = stream
+	var speech_res := await client_voice.create_speech(completion_res.content, speech_opts)
+	if not speech_res.ok:
+		print(speech_res.error)
+		get_tree().quit()
+	audio_stream_player.stream = speech_res.stream
 	audio_stream_player.play()
 	await audio_stream_player.finished
 
@@ -63,14 +65,13 @@ func _ready() -> void:
 	var clip := load("res://examples/openai_client_demo/demo-speech.mp3")
 	var transcribe_opts := C3OpenAIClient.TranscriptionOptions.new()
 	transcribe_opts.model = "deepdml/faster-whisper-large-v3-turbo-ct2"
-	var transcription := await client_voice.create_transcription(
+	var transcription_res := await client_voice.create_transcription(
 		clip, transcribe_opts
 	)
-	if transcription == null:
-		# Something went wrong.
-		# _on_voice_request_failed() should handle the error.
-		return
-	print(transcription.text)
+	if not transcription_res.ok:
+		print(transcription_res.error)
+		get_tree().quit()
+	print(transcription_res.text)
 	await audio_stream_player.finished
 	get_tree().quit()
 

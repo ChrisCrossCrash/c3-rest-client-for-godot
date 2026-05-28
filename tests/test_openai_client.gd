@@ -57,6 +57,17 @@ class TestGetModels extends GutTest:
 		client = TestableClient.new()
 		add_child_autofree(client)
 
+	func test_returns_models_response() -> void:
+		client.preset_response = {
+			"ok": true,
+			"body":
+			'{"data": [{"id": "model-a"}, {"id": "model-b"}]}'.to_utf8_buffer()
+		}
+
+		var result := await client.get_models()
+
+		assert_is(result, C3OpenAIClient.ModelsResponse)
+
 	func test_returns_model_ids() -> void:
 		client.preset_response = {
 			"ok": true,
@@ -64,25 +75,25 @@ class TestGetModels extends GutTest:
 			'{"data": [{"id": "model-a"}, {"id": "model-b"}]}'.to_utf8_buffer()
 		}
 
-		var ids := await client.get_models()
+		var result := await client.get_models()
 
-		assert_eq(ids, PackedStringArray(["model-a", "model-b"]))
+		assert_eq(result.ids, PackedStringArray(["model-a", "model-b"]))
 
-	func test_returns_empty_array_for_empty_data() -> void:
+	func test_returns_empty_ids_for_empty_data() -> void:
 		client.preset_response = {
 			"ok": true, "body": '{"data": []}'.to_utf8_buffer()
 		}
 
-		var ids := await client.get_models()
+		var result := await client.get_models()
 
-		assert_eq(ids, PackedStringArray())
+		assert_eq(result.ids, PackedStringArray())
 
-	func test_returns_empty_array_when_data_key_missing() -> void:
+	func test_returns_empty_ids_when_data_key_missing() -> void:
 		client.preset_response = {"ok": true, "body": "{}".to_utf8_buffer()}
 
-		var ids := await client.get_models()
+		var result := await client.get_models()
 
-		assert_eq(ids, PackedStringArray())
+		assert_eq(result.ids, PackedStringArray())
 
 	func test_uses_correct_endpoint() -> void:
 		client.base_url = "http://example.com"
@@ -113,14 +124,14 @@ class TestGetModels extends GutTest:
 
 		assert_signal_emitted(client, "request_failed")
 
-	func test_returns_empty_array_on_network_error() -> void:
+	func test_returns_failed_response_on_network_error() -> void:
 		client.preset_response = {
 			"ok": false, "error": {"error": ERR_CANT_CONNECT}
 		}
 
-		var ids := await client.get_models()
+		var result := await client.get_models()
 
-		assert_eq(ids, PackedStringArray())
+		assert_false(result.ok)
 
 	func test_emits_request_failed_on_http_failure() -> void:
 		client.preset_response = {
@@ -133,15 +144,15 @@ class TestGetModels extends GutTest:
 
 		assert_signal_emitted(client, "request_failed")
 
-	func test_returns_empty_array_on_http_failure() -> void:
+	func test_returns_failed_response_on_http_failure() -> void:
 		client.preset_response = {
 			"ok": false,
 			"error": {"result": HTTPRequest.RESULT_CONNECTION_ERROR}
 		}
 
-		var ids := await client.get_models()
+		var result := await client.get_models()
 
-		assert_eq(ids, PackedStringArray())
+		assert_false(result.ok)
 
 
 class TestMessageHelpers extends GutTest:
@@ -384,14 +395,14 @@ class TestChatCompletion extends GutTest:
 		)
 		assert_eq(client.request_log[0]["body"]["max_tokens"], 100)
 
-	func test_returns_null_on_network_error() -> void:
+	func test_returns_failed_response_on_network_error() -> void:
 		client.preset_response = {
 			"ok": false, "error": {"error": ERR_CANT_CONNECT}
 		}
 		var result: C3OpenAIClient.ChatCompletionResponse = await (
 			client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
 		)
-		assert_null(result)
+		assert_false(result.ok)
 
 	func test_emits_request_failed_on_network_error() -> void:
 		client.preset_response = {
@@ -401,7 +412,7 @@ class TestChatCompletion extends GutTest:
 		await client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
 		assert_signal_emitted(client, "request_failed")
 
-	func test_returns_null_on_http_failure() -> void:
+	func test_returns_failed_response_on_http_failure() -> void:
 		client.preset_response = {
 			"ok": false,
 			"error": {"result": HTTPRequest.RESULT_CONNECTION_ERROR}
@@ -409,7 +420,7 @@ class TestChatCompletion extends GutTest:
 		var result := await client.chat_completion(
 			[C3OpenAIClient.make_user_msg("Hello")]
 		)
-		assert_null(result)
+		assert_false(result.ok)
 
 	func test_emits_request_failed_on_http_failure() -> void:
 		client.preset_response = {
@@ -420,14 +431,14 @@ class TestChatCompletion extends GutTest:
 		await client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
 		assert_signal_emitted(client, "request_failed")
 
-	func test_returns_null_on_invalid_json() -> void:
+	func test_returns_failed_response_on_invalid_json() -> void:
 		client.preset_response = {
 			"ok": true, "body": "not json".to_utf8_buffer()
 		}
 		var result := await client.chat_completion(
 			[C3OpenAIClient.make_user_msg("Hello")]
 		)
-		assert_null(result)
+		assert_false(result.ok)
 
 	func test_emits_request_failed_on_invalid_json() -> void:
 		client.preset_response = {
@@ -437,14 +448,14 @@ class TestChatCompletion extends GutTest:
 		await client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
 		assert_signal_emitted(client, "request_failed")
 
-	func test_returns_null_on_empty_choices() -> void:
+	func test_returns_failed_response_on_empty_choices() -> void:
 		client.preset_response = {
 			"ok": true, "body": '{"choices": []}'.to_utf8_buffer()
 		}
 		var result := await client.chat_completion(
 			[C3OpenAIClient.make_user_msg("Hello")]
 		)
-		assert_null(result)
+		assert_false(result.ok)
 
 	func test_emits_request_failed_on_empty_choices() -> void:
 		client.preset_response = {
@@ -531,15 +542,15 @@ class TestCreateSpeech extends GutTest:
 	func ok_pcm() -> Dictionary:
 		return {"ok": true, "body": PackedByteArray([0x00, 0x01, 0x02, 0x03])}
 
-	func test_returns_audio_stream() -> void:
+	func test_returns_speech_response() -> void:
 		client.preset_response = ok_pcm()
 		var result := await client.create_speech("Hello")
-		assert_is(result, AudioStream)
+		assert_is(result, C3OpenAIClient.SpeechResponse)
 
-	func test_returns_audio_stream_wav_for_pcm_format() -> void:
+	func test_stream_is_audio_stream_wav() -> void:
 		client.preset_response = ok_pcm()
 		var result := await client.create_speech("Hello")
-		assert_is(result, AudioStreamWAV)
+		assert_is(result.stream, AudioStreamWAV)
 
 	func test_uses_correct_endpoint() -> void:
 		client.base_url = "http://example.com"
@@ -581,39 +592,39 @@ class TestCreateSpeech extends GutTest:
 	func test_pcm_stores_raw_bytes_as_data() -> void:
 		var raw := PackedByteArray([0xAA, 0xBB, 0xCC, 0xDD])
 		client.preset_response = {"ok": true, "body": raw}
-		var stream := await client.create_speech("Hello")
-		var result := stream as AudioStreamWAV
-		assert_eq(result.data, raw)
+		var result := await client.create_speech("Hello")
+		var wav := result.stream as AudioStreamWAV
+		assert_eq(wav.data, raw)
 
 	func test_pcm_uses_configured_sample_rate() -> void:
 		client.preset_response = ok_pcm()
 		var opts := C3OpenAIClient.SpeechOptions.new()
 		opts.pcm_sample_rate = 16000
-		var stream := await client.create_speech("Hello", opts)
-		var result := stream as AudioStreamWAV
-		assert_eq(result.mix_rate, 16000)
+		var result := await client.create_speech("Hello", opts)
+		var wav := result.stream as AudioStreamWAV
+		assert_eq(wav.mix_rate, 16000)
 
 	func test_pcm_uses_configured_stereo() -> void:
 		client.preset_response = ok_pcm()
 		var opts := C3OpenAIClient.SpeechOptions.new()
 		opts.pcm_stereo = true
-		var stream := await client.create_speech("Hello", opts)
-		var result := stream as AudioStreamWAV
-		assert_true(result.stereo)
+		var result := await client.create_speech("Hello", opts)
+		var wav := result.stream as AudioStreamWAV
+		assert_true(wav.stereo)
 
 	func test_pcm_defaults_to_24000hz_mono() -> void:
 		client.preset_response = ok_pcm()
-		var stream := await client.create_speech("Hello")
-		var result := stream as AudioStreamWAV
-		assert_eq(result.mix_rate, 24000)
-		assert_false(result.stereo)
+		var result := await client.create_speech("Hello")
+		var wav := result.stream as AudioStreamWAV
+		assert_eq(wav.mix_rate, 24000)
+		assert_false(wav.stereo)
 
-	func test_returns_null_on_network_error() -> void:
+	func test_returns_failed_response_on_network_error() -> void:
 		client.preset_response = {
 			"ok": false, "error": {"error": ERR_CANT_CONNECT}
 		}
 		var result := await client.create_speech("Hello")
-		assert_null(result)
+		assert_false(result.ok)
 
 	func test_emits_request_failed_on_network_error() -> void:
 		client.preset_response = {
@@ -623,13 +634,13 @@ class TestCreateSpeech extends GutTest:
 		await client.create_speech("Hello")
 		assert_signal_emitted(client, "request_failed")
 
-	func test_returns_null_on_http_failure() -> void:
+	func test_returns_failed_response_on_http_failure() -> void:
 		client.preset_response = {
 			"ok": false,
 			"error": {"result": HTTPRequest.RESULT_CONNECTION_ERROR}
 		}
 		var result := await client.create_speech("Hello")
-		assert_null(result)
+		assert_false(result.ok)
 
 	func test_emits_request_failed_on_http_failure() -> void:
 		client.preset_response = {
@@ -746,12 +757,12 @@ class TestCreateTranscription extends GutTest:
 		await client.create_transcription(make_wav_stream())
 		assert_eq(client.request_log[0]["filename"], "audio.wav")
 
-	func test_returns_null_on_network_error() -> void:
+	func test_returns_failed_response_on_network_error() -> void:
 		client.preset_response = {
 			"ok": false, "error": {"error": ERR_CANT_CONNECT}
 		}
 		var result := await client.create_transcription(make_mp3_stream())
-		assert_null(result)
+		assert_false(result.ok)
 
 	func test_emits_request_failed_on_network_error() -> void:
 		client.preset_response = {
@@ -761,13 +772,13 @@ class TestCreateTranscription extends GutTest:
 		await client.create_transcription(make_mp3_stream())
 		assert_signal_emitted(client, "request_failed")
 
-	func test_returns_null_on_http_failure() -> void:
+	func test_returns_failed_response_on_http_failure() -> void:
 		client.preset_response = {
 			"ok": false,
 			"error": {"result": HTTPRequest.RESULT_CONNECTION_ERROR}
 		}
 		var result := await client.create_transcription(make_mp3_stream())
-		assert_null(result)
+		assert_false(result.ok)
 
 	func test_emits_request_failed_on_http_failure() -> void:
 		client.preset_response = {
@@ -778,12 +789,12 @@ class TestCreateTranscription extends GutTest:
 		await client.create_transcription(make_mp3_stream())
 		assert_signal_emitted(client, "request_failed")
 
-	func test_returns_null_on_invalid_json() -> void:
+	func test_returns_failed_response_on_invalid_json() -> void:
 		client.preset_response = {
 			"ok": true, "body": "not json".to_utf8_buffer()
 		}
 		var result := await client.create_transcription(make_mp3_stream())
-		assert_null(result)
+		assert_false(result.ok)
 
 	func test_emits_request_failed_on_invalid_json() -> void:
 		client.preset_response = {

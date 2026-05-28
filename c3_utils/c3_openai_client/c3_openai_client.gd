@@ -1,5 +1,5 @@
 # C3 Godot Utils
-# v2.7.0
+# v3.0.0
 # File revision: 2026-05-27
 
 @tool
@@ -7,6 +7,9 @@ class_name C3OpenAIClient
 extends Node
 ## General-purpose client for OpenAI-compatible HTTP APIs.
 
+## Emitted when a request fails. The [member ok] field of the returned response
+## object is the primary way to detect failure; this signal is a secondary
+## broadcast for optional cross-cutting concerns such as global error logging.
 signal request_failed(error: Dictionary)
 
 @export var base_url: String = "http://127.0.0.1:1234"
@@ -25,8 +28,22 @@ class SpeechOptions:
 	var pcm_stereo: bool = false
 
 
+## The response returned by [method create_speech].
+class SpeechResponse:
+	## [code]true[/code] if the request succeeded.
+	var ok: bool = true
+	## Populated with error details when [member ok] is [code]false[/code].
+	var error: Dictionary = {}
+	## The resulting audio stream. Only valid when [member ok] is [code]true[/code].
+	var stream: AudioStream
+
+
 ## The response returned by [method create_transcription].
 class TranscriptionResponse:
+	## [code]true[/code] if the request succeeded.
+	var ok: bool = true
+	## Populated with error details when [member ok] is [code]false[/code].
+	var error: Dictionary = {}
 	var text: String = ""
 
 
@@ -50,6 +67,10 @@ class ChatOptions:
 
 ## The response returned by [method chat_completion].
 class ChatCompletionResponse:
+	## [code]true[/code] if the request succeeded.
+	var ok: bool = true
+	## Populated with error details when [member ok] is [code]false[/code].
+	var error: Dictionary = {}
 	var content: String = ""
 	var refusal: String = ""
 	var finish_reason: String = ""
@@ -57,24 +78,37 @@ class ChatCompletionResponse:
 	var usage: Dictionary = {}
 
 
+## The response returned by [method get_models].
+class ModelsResponse:
+	## [code]true[/code] if the request succeeded.
+	var ok: bool = true
+	## Populated with error details when [member ok] is [code]false[/code].
+	var error: Dictionary = {}
+	var ids: PackedStringArray = PackedStringArray()
+
+
 ## Returns the list of model IDs available on the server.
-## Returns an empty array and emits [signal request_failed] on failure.
-func get_models() -> PackedStringArray:
+## Returns a [ModelsResponse] with [member ModelsResponse.ok] set to
+## [code]false[/code] and emits [signal request_failed] on failure.
+func get_models() -> ModelsResponse:
 	var response := await _http_get(base_url + "/v1/models", _headers())
+	var res := ModelsResponse.new()
 	if not response["ok"]:
-		request_failed.emit(response["error"])
-		return PackedStringArray()
+		res.ok = false
+		res.error = response["error"]
+		request_failed.emit(res.error)
+		return res
 	var parser := JSON.new()
 	parser.parse((response["body"] as PackedByteArray).get_string_from_utf8())
 	var json: Variant = parser.get_data()
-	var ids := PackedStringArray()
 	for m in json.get("data", []):
-		ids.append(m["id"])
-	return ids
+		res.ids.append(m["id"])
+	return res
 
 
 ## Sends a chat completion request and returns the model's response.
-## Returns [code]null[/code] and emits [signal request_failed] on failure.
+## Returns a [ChatCompletionResponse] with [member ChatCompletionResponse.ok]
+## set to [code]false[/code] and emits [signal request_failed] on failure.
 func chat_completion(
 	messages: Array, opts: ChatOptions = null
 ) -> ChatCompletionResponse:
@@ -100,9 +134,12 @@ func chat_completion(
 	var response := await _http_post(
 		base_url + "/v1/chat/completions", body, _headers()
 	)
+	var res := ChatCompletionResponse.new()
 	if not response["ok"]:
-		request_failed.emit(response["error"])
-		return null
+		res.ok = false
+		res.error = response["error"]
+		request_failed.emit(res.error)
+		return res
 	var parser := JSON.new()
 	if (
 		parser.parse(
@@ -110,19 +147,20 @@ func chat_completion(
 		)
 		!= OK
 	):
-		request_failed.emit(
-			{"message": "Failed to parse response body as JSON."}
-		)
-		return null
+		res.ok = false
+		res.error = {"message": "Failed to parse response body as JSON."}
+		request_failed.emit(res.error)
+		return res
 	var json: Variant = parser.get_data()
 	var choices: Variant = json.get("choices") if json is Dictionary else null
 	if not choices is Array or (choices as Array).is_empty():
-		request_failed.emit({"message": "Response JSON missing choices."})
-		return null
+		res.ok = false
+		res.error = {"message": "Response JSON missing choices."}
+		request_failed.emit(res.error)
+		return res
 	var json_dict: Dictionary = json
 	var choice: Dictionary = (choices as Array)[0]
 	var message: Dictionary = choice["message"]
-	var res := ChatCompletionResponse.new()
 	var content: Variant = message.get("content")
 	res.content = content if content is String else ""
 	var refusal: Variant = message.get("refusal")
@@ -185,12 +223,13 @@ static func make_user_msg_with_parts(parts: Array) -> Dictionary:
 	return {"role": "user", "content": parts}
 
 
-## Sends a text-to-speech request and returns the audio as an [AudioStreamWAV].
+## Sends a text-to-speech request and returns a [SpeechResponse].
 ## The server must return raw 16-bit signed little-endian PCM (request format
 ## [code]"pcm"[/code]). Use [member SpeechOptions.pcm_sample_rate] and
 ## [member SpeechOptions.pcm_stereo] to match the server's output. [br]
-## Returns [code]null[/code] and emits [signal request_failed] on failure.
-func create_speech(input: String, opts: SpeechOptions = null) -> AudioStream:
+## Returns a [SpeechResponse] with [member SpeechResponse.ok] set to
+## [code]false[/code] and emits [signal request_failed] on failure.
+func create_speech(input: String, opts: SpeechOptions = null) -> SpeechResponse:
 	if opts == null:
 		opts = SpeechOptions.new()
 	var body := {
@@ -202,25 +241,31 @@ func create_speech(input: String, opts: SpeechOptions = null) -> AudioStream:
 	var response := await _http_post(
 		base_url + "/v1/audio/speech", body, _headers()
 	)
+	var res := SpeechResponse.new()
 	if not response["ok"]:
-		request_failed.emit(response["error"])
-		return null
+		res.ok = false
+		res.error = response["error"]
+		request_failed.emit(res.error)
+		return res
 	var wav := AudioStreamWAV.new()
 	wav.data = response["body"]
 	wav.stereo = opts.pcm_stereo
 	wav.mix_rate = opts.pcm_sample_rate
 	wav.format = AudioStreamWAV.FORMAT_16_BITS
-	return wav
+	res.stream = wav
+	return res
 
 
-## Transcribes an [AudioStream] and returns the result.
+## Transcribes an [AudioStream] and returns a [TranscriptionResponse].
 ## Supports [AudioStreamMP3] and [AudioStreamWAV] as input.
-## Returns [code]null[/code] and emits [signal request_failed] on failure.
+## Returns a [TranscriptionResponse] with [member TranscriptionResponse.ok] set to
+## [code]false[/code] and emits [signal request_failed] on failure.
 func create_transcription(
 	audio: AudioStream, opts: TranscriptionOptions = null
 ) -> TranscriptionResponse:
 	if opts == null:
 		opts = TranscriptionOptions.new()
+	var res := TranscriptionResponse.new()
 	var audio_bytes: PackedByteArray
 	var filename: String
 	var file_content_type: String
@@ -236,7 +281,9 @@ func create_transcription(
 		push_error(
 			"C3OpenAIClient: Unsupported AudioStream type. Only AudioStreamMP3 and AudioStreamWAV are supported."
 		)
-		return null
+		res.ok = false
+		res.error = {"message": "Unsupported AudioStream type."}
+		return res
 	var form_fields: Dictionary = {"model": opts.model}
 	if not opts.language.is_empty():
 		form_fields["language"] = opts.language
@@ -250,17 +297,18 @@ func create_transcription(
 		_headers()
 	)
 	if not response["ok"]:
-		request_failed.emit(response["error"])
-		return null
+		res.ok = false
+		res.error = response["error"]
+		request_failed.emit(res.error)
+		return res
 	var parser := JSON.new()
 	var body_str := (response["body"] as PackedByteArray).get_string_from_utf8()
 	if parser.parse(body_str) != OK:
-		request_failed.emit(
-			{"message": "Failed to parse transcription response as JSON."}
-		)
-		return null
+		res.ok = false
+		res.error = {"message": "Failed to parse transcription response as JSON."}
+		request_failed.emit(res.error)
+		return res
 	var json: Variant = parser.get_data()
-	var res := TranscriptionResponse.new()
 	var text: Variant = (
 		(json as Dictionary).get("text") if json is Dictionary else null
 	)

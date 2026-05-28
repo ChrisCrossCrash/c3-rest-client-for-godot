@@ -51,6 +51,9 @@ func stop_recording() -> void:
 	var transcription := await client_voice.create_transcription(
 		_recording, transcribe_opts
 	)
+	if not transcription.ok:
+		print(transcription.error)
+		return
 	print(transcription.text)
 
 	# LLM processing
@@ -60,7 +63,7 @@ func stop_recording() -> void:
 		))
 	_messages.append(C3OpenAIClient.make_user_msg(transcription.text + " /no_think"))
 	var completion := await client_llm.chat_completion(_messages)
-	if completion == null:
+	if not completion.ok:
 		return
 	print(completion.content)
 	_messages.append(C3OpenAIClient.make_assistant_msg(completion.content))
@@ -69,8 +72,11 @@ func stop_recording() -> void:
 	var speech_opts := C3OpenAIClient.SpeechOptions.new()
 	speech_opts.model = "speaches-ai/Kokoro-82M-v1.0-ONNX-fp16"
 	speech_opts.voice = "af_heart"
-	var stream: AudioStream = await client_voice.create_speech(completion.content, speech_opts)
-	playback_player.stream = stream
+	var speech := await client_voice.create_speech(completion.content, speech_opts)
+	if not speech.ok:
+		print(speech.error)
+		return
+	playback_player.stream = speech.stream
 	playback_player.play()
 	await playback_player.finished
 

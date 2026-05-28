@@ -16,6 +16,7 @@ gdir
 gexit
 ginclude
 hashset
+headlessly
 Incentivized
 isdisjoint
 issubset
@@ -46,4 +47,5 @@ tscn
 VOLUMEDOWN
 VOLUMEMUTE
 VOLUMEUP
+WASD
 xpivot
