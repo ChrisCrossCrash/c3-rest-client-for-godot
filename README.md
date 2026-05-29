@@ -1,17 +1,43 @@
-# C3 Godot Utilities
+# C3 OpenAI-Compatible Client for Godot
 
-A collection of utility scripts and tools for Godot Engine projects.
+A drop-in client node for Godot 4 calling OpenAI-compatible HTTP APIs. Works with OpenAI, LM Studio, speaches, and any other server that speaks the OpenAI REST API.
 
-## Contributing
+## Features
 
-Scripts in `c3_utils/` include a version header:
+- Chat completions with vision (image input) support
+- Text-to-speech (returns a ready-to-play `AudioStream`)
+- Speech-to-text / transcription (`AudioStreamMP3` and `AudioStreamWAV`)
+- List available models
+- Every method returns a typed response object — check `.ok` to detect failure
 
+## Installation
+
+Copy the `c3_openai_client/` directory into your project's `addons/` directory.
+
+## Quick start
+
+1. In your scene, choose **Add Child Node** and search for `C3OpenAIClient`.
+2. Set **Base URL** and **Api Key** in the Inspector.
+3. Reference it from your scene script:
+
+```gdscript
+@onready var client: C3OpenAIClient = $C3OpenAIClient
+
+func _ready() -> void:
+    var messages := [
+        C3OpenAIClient.make_system_msg("You are a helpful assistant."),
+        C3OpenAIClient.make_user_msg("What is the capital of France?"),
+    ]
+    var opts := C3OpenAIClient.ChatOptions.new()
+    opts.model = "gpt-4o"
+
+    var res := await client.chat_completion(messages, opts)
+    if res.ok:
+        print(res.content)
+    else:
+        push_error("Chat failed: " + str(res.error))
 ```
-# C3 Godot Utils
-# v1.2.3
-# File revision: 2025-12-23
-````
 
-Update `File revision` when a file changes.
+## Full example
 
-When releasing a new version, update `Version` in all files, commit, and tag the commit (`vX.Y.Z`).
+See [`examples/openai_client_demo/openai_client_demo.gd`](examples/openai_client_demo/openai_client_demo.gd) for a complete walkthrough covering model listing, chat, vision, TTS, and STT.
