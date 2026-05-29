@@ -305,7 +305,9 @@ func create_transcription(
 	var body_str := (response["body"] as PackedByteArray).get_string_from_utf8()
 	if parser.parse(body_str) != OK:
 		res.ok = false
-		res.error = {"message": "Failed to parse transcription response as JSON."}
+		res.error = {
+			"message": "Failed to parse transcription response as JSON."
+		}
 		request_failed.emit(res.error)
 		return res
 	var json: Variant = parser.get_data()
