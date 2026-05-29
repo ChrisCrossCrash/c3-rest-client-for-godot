@@ -22,6 +22,3 @@ base_url = "http://127.0.0.1:8000"
 metadata/_custom_type_script = "uid://cm0f1gy545fc6"
 
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="." unique_id=-201143042]
-
-[connection signal="request_failed" from="C3OpenAIClientLLM" to="." method="_on_llm_request_failed"]
-[connection signal="request_failed" from="C3OpenAIClientVoice" to="." method="_on_voice_request_failed"]
