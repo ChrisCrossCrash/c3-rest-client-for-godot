@@ -26,7 +26,6 @@ func _process(_delta: float) -> void:
 		bg.color = Color.BLACK
 		stop_recording()
 	if Input.is_action_just_pressed("ui_cancel"):
-		# Reset conversation.
 		print("Resetting conversation.")
 		_messages.clear()
 
@@ -52,18 +51,19 @@ func stop_recording() -> void:
 		_recording, transcribe_opts
 	)
 	if not transcription.ok:
-		print(transcription.error)
+		push_error(transcription.error)
 		return
 	print(transcription.text)
 
 	# LLM processing
 	if _messages.is_empty():
 		_messages.append(C3OpenAIClient.make_system_msg(
-			"You are a helpful assistant that answers questions about the world."
+			"You always answer in rhymes."
 		))
-	_messages.append(C3OpenAIClient.make_user_msg(transcription.text + " /no_think"))
+	_messages.append(C3OpenAIClient.make_user_msg(transcription.text))
 	var completion := await client_llm.chat_completion(_messages)
 	if not completion.ok:
+		push_error(completion.error)
 		return
 	print(completion.content)
 	_messages.append(C3OpenAIClient.make_assistant_msg(completion.content))
@@ -71,19 +71,11 @@ func stop_recording() -> void:
 	# TTS processing
 	var speech_opts := C3OpenAIClient.SpeechOptions.new()
 	speech_opts.model = "speaches-ai/Kokoro-82M-v1.0-ONNX-fp16"
-	speech_opts.voice = "af_heart"
+	speech_opts.voice = "af_bella"
 	var speech := await client_voice.create_speech(completion.content, speech_opts)
 	if not speech.ok:
-		print(speech.error)
+		push_error(speech.error)
 		return
 	playback_player.stream = speech.stream
 	playback_player.play()
 	await playback_player.finished
-
-
-func _on_voice_client_request_failed(error: Dictionary) -> void:
-	print(error)
-
-
-func _on_llm_client_request_failed(error: Dictionary) -> void:
-	print(error)

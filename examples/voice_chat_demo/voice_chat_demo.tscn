@@ -37,6 +37,3 @@ metadata/_custom_type_script = "uid://cm0f1gy545fc6"
 script = ExtResource("2_0fapu")
 base_url = "http://127.0.0.1:8000"
 metadata/_custom_type_script = "uid://cm0f1gy545fc6"
-
-[connection signal="request_failed" from="C3OpenAIClientLLM" to="." method="_on_llm_client_request_failed"]
-[connection signal="request_failed" from="C3OpenAIClientVoice" to="." method="_on_voice_client_request_failed"]
