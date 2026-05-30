@@ -311,6 +311,9 @@ class TestChatCompletion extends GutTest:
 		var result: C3OpenAIClient.ChatCompletionResponse = await (
 			client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
 		)
+		assert_eq(typeof(result.usage["prompt_tokens"]), TYPE_INT)
+		assert_eq(typeof(result.usage["completion_tokens"]), TYPE_INT)
+		assert_eq(typeof(result.usage["total_tokens"]), TYPE_INT)
 		assert_eq(result.usage["prompt_tokens"], 10)
 		assert_eq(result.usage["completion_tokens"], 5)
 		assert_eq(result.usage["total_tokens"], 15)
