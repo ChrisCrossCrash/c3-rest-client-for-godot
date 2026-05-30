@@ -1,7 +1,3 @@
-# C3 Godot Utils
-# v3.0.0
-# File revision: 2026-05-27
-
 @tool
 class_name C3OpenAIClient
 extends Node
