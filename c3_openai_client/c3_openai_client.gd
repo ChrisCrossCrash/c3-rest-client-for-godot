@@ -12,7 +12,12 @@ extends Node
 ## broadcast for optional cross-cutting concerns such as global error logging.
 signal request_failed(error: Dictionary)
 
-@export var base_url: String = "http://127.0.0.1:1234"
+## The base URL of the OpenAI-compatible API, including the version path.
+## For example, [code]"https://api.openai.com/v1"[/code] for OpenAI or
+## [code]"http://127.0.0.1:1234/v1"[/code] for a local server.
+@export var base_url: String = "http://127.0.0.1:1234/v1"
+## The API key sent as a Bearer token in the [code]Authorization[/code] header.
+## Set to any non-empty value for servers that don't require authentication.
 @export var api_key: String = "no-key"
 
 
@@ -91,7 +96,7 @@ class ModelsResponse:
 ## Returns a [ModelsResponse] with [member ModelsResponse.ok] set to
 ## [code]false[/code] and emits [signal request_failed] on failure.
 func get_models() -> ModelsResponse:
-	var response := await _http_get(base_url + "/v1/models", _headers())
+	var response := await _http_get(base_url + "/models", _headers())
 	var res := ModelsResponse.new()
 	if not response["ok"]:
 		res.ok = false
@@ -132,7 +137,7 @@ func chat_completion(
 	if not opts.stop.is_empty():
 		body["stop"] = opts.stop
 	var response := await _http_post(
-		base_url + "/v1/chat/completions", body, _headers()
+		base_url + "/chat/completions", body, _headers()
 	)
 	var res := ChatCompletionResponse.new()
 	if not response["ok"]:
@@ -244,7 +249,7 @@ func create_speech(input: String, opts: SpeechOptions = null) -> SpeechResponse:
 		"response_format": "pcm",
 	}
 	var response := await _http_post(
-		base_url + "/v1/audio/speech", body, _headers()
+		base_url + "/audio/speech", body, _headers()
 	)
 	var res := SpeechResponse.new()
 	if not response["ok"]:
@@ -293,7 +298,7 @@ func create_transcription(
 	if not opts.language.is_empty():
 		form_fields["language"] = opts.language
 	var response := await _http_post_multipart(
-		base_url + "/v1/audio/transcriptions",
+		base_url + "/audio/transcriptions",
 		form_fields,
 		"file",
 		audio_bytes,

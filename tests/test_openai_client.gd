@@ -96,7 +96,7 @@ class TestGetModels extends GutTest:
 		assert_eq(result.ids, PackedStringArray())
 
 	func test_uses_correct_endpoint() -> void:
-		client.base_url = "http://example.com"
+		client.base_url = "http://example.com/v1"
 		client.preset_response = {
 			"ok": true, "body": '{"data": []}'.to_utf8_buffer()
 		}
@@ -333,7 +333,7 @@ class TestChatCompletion extends GutTest:
 		assert_eq(result.refusal, "I can't help with that.")
 
 	func test_uses_correct_endpoint() -> void:
-		client.base_url = "http://example.com"
+		client.base_url = "http://example.com/v1"
 		client.preset_response = {
 			"ok": true, "body": make_json_res("Hi").to_utf8_buffer()
 		}
@@ -556,7 +556,7 @@ class TestCreateSpeech extends GutTest:
 		assert_is(result.stream, AudioStreamWAV)
 
 	func test_uses_correct_endpoint() -> void:
-		client.base_url = "http://example.com"
+		client.base_url = "http://example.com/v1"
 		client.preset_response = ok_pcm()
 		await client.create_speech("Hello")
 		assert_eq(
@@ -691,7 +691,7 @@ class TestCreateTranscription extends GutTest:
 		assert_eq(result.text, "Hello world")
 
 	func test_uses_correct_endpoint() -> void:
-		client.base_url = "http://example.com"
+		client.base_url = "http://example.com/v1"
 		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
 		await client.create_transcription(make_mp3_stream())
 		assert_eq(

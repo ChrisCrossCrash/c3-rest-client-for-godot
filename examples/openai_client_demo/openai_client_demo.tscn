@@ -18,7 +18,7 @@ metadata/_custom_type_script = "uid://cm0f1gy545fc6"
 
 [node name="C3OpenAIClientVoice" type="Node" parent="." unique_id=-1212254153]
 script = ExtResource("2_pxfbr")
-base_url = "http://127.0.0.1:8000"
+base_url = "http://127.0.0.1:8000/v1"
 metadata/_custom_type_script = "uid://cm0f1gy545fc6"
 
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="." unique_id=-201143042]
