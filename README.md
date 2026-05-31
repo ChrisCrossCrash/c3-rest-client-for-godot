@@ -33,7 +33,7 @@ Copy the `c3_openai_client/` directory into your project's `addons/` directory.
 			C3OpenAIClient.make_user_msg("What is the capital of France?"),
 		]
 		var opts := C3OpenAIClient.ChatOptions.new()
-		opts.model = "gpt-4o"
+		opts.model = "gpt-5.4-mini"
 
 		var res := await client.chat_completion(messages, opts)
 		if res.ok:
