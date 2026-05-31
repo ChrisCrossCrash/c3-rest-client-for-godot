@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://dkpj4irruerkf"]
 
 [ext_resource type="Script" uid="uid://7wumxmcnfuwb" path="res://examples/openai_client_demo/openai_client_demo.gd" id="1_pxfbr"]
-[ext_resource type="Script" uid="uid://cm0f1gy545fc6" path="res://c3_utils/c3_openai_client/c3_openai_client.gd" id="2_pxfbr"]
+[ext_resource type="Script" uid="uid://cm0f1gy545fc6" path="res://c3_openai_client/c3_openai_client.gd" id="2_pxfbr"]
 
 [node name="OpenaiClientDemo" type="Control" unique_id=575085511]
 layout_mode = 3

@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://c3n6xhpr5h1gc"]
 
 [ext_resource type="Script" uid="uid://cdn5e8i12wr13" path="res://examples/voice_chat_demo/voice_chat_demo.gd" id="1_pn1jc"]
-[ext_resource type="Script" uid="uid://cm0f1gy545fc6" path="res://c3_utils/c3_openai_client/c3_openai_client.gd" id="2_0fapu"]
+[ext_resource type="Script" uid="uid://cm0f1gy545fc6" path="res://c3_openai_client/c3_openai_client.gd" id="2_0fapu"]
 
 [sub_resource type="AudioStreamMicrophone" id="AudioStreamMicrophone_pn1jc"]
 
