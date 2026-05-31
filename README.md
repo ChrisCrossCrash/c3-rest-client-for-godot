@@ -17,26 +17,30 @@ Copy the `c3_openai_client/` directory into your project's `addons/` directory.
 ## Quick start
 
 1. In your scene, choose **Add Child Node** and search for `C3OpenAIClient`.
-2. Set **Base URL** and **Api Key** in the Inspector.
+2. Set **Base URL** in the Inspector (e.g. `https://api.openai.com/v1`).
 3. Reference it from your scene script:
 
-```gdscript
-@onready var client: C3OpenAIClient = $C3OpenAIClient
+    ```gdscript
+    @onready var client: C3OpenAIClient = $C3OpenAIClient
 
-func _ready() -> void:
-    var messages := [
-        C3OpenAIClient.make_system_msg("You are a helpful assistant."),
-        C3OpenAIClient.make_user_msg("What is the capital of France?"),
-    ]
-    var opts := C3OpenAIClient.ChatOptions.new()
-    opts.model = "gpt-4o"
+    func _ready() -> void:
+        # Get the API key from an environment variable and set it on the client.
+        # You can skip this step for servers that don't require authentication.
+        client.api_key = OS.get_environment("OPENAI_API_KEY")
 
-    var res := await client.chat_completion(messages, opts)
-    if res.ok:
-        print(res.content)
-    else:
-        push_error("Chat failed: " + str(res.error))
-```
+        var messages := [
+            C3OpenAIClient.make_system_msg("You are a helpful assistant."),
+            C3OpenAIClient.make_user_msg("What is the capital of France?"),
+        ]
+        var opts := C3OpenAIClient.ChatOptions.new()
+        opts.model = "gpt-4o"
+
+        var res := await client.chat_completion(messages, opts)
+        if res.ok:
+            print(res.content)
+        else:
+            push_error("Chat failed: " + str(res.error))
+    ```
 
 ## Full example
 

@@ -14,7 +14,7 @@ signal request_failed(error: Dictionary)
 @export var base_url: String = "http://127.0.0.1:1234/v1"
 ## The API key sent as a Bearer token in the [code]Authorization[/code] header.
 ## Set to any non-empty value for servers that don't require authentication.
-@export var api_key: String = "no-key"
+var api_key: String = "no-key"
 
 
 ## Optional parameters for a text-to-speech request.
