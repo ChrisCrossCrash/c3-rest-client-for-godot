@@ -43,7 +43,7 @@ Copy the `c3_openai_client/` directory into your project's `addons/` directory.
 
         var res := await client.chat_completion(messages, opts)
         if res.ok:
-            print(res.content)
+            print(res.content)  # "The capital of France is Paris."
         else:
             push_error("Chat failed: " + str(res.error))
     ```
