@@ -11,6 +11,7 @@ jobs:
   gut:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         godot-version:
           - 4.0.4-stable
