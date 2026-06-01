@@ -1,3 +1,4 @@
+# flake8: noqa: E501
 """Build a .zip asset bundle for the Godot Asset Store."""
 
 import argparse
@@ -17,9 +18,11 @@ def build(version: str):
     with zipfile.ZipFile(output_zip, "w", zipfile.ZIP_DEFLATED) as zf:
         for file in sorted(ASSET_DIR.rglob("*")):
             if file.is_file():
-                zf.write(file, file.relative_to(ASSET_DIR))
+                zf.write(
+                    file, Path("addons/c3_openai_client") / file.relative_to(ASSET_DIR)
+                )
 
-        zf.write(LICENSE_FILE, LICENSE_FILE.name)
+        zf.write(LICENSE_FILE, Path("addons/c3_openai_client") / LICENSE_FILE.name)
 
     print(f"Built: {output_zip}")
 
