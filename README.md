@@ -10,6 +10,10 @@ A drop-in client node for Godot 4 calling OpenAI-compatible HTTP APIs. Works wit
 - List available models
 - Every method returns a typed response object — check `.ok` to detect failure
 
+## Compatibility
+
+Tested on Godot 4.6.x with automated ([GUT](https://github.com/bitwes/Gut)) and manual tests. Manually verified to work back to Godot 4.0.0.
+
 ## Installation
 
 Copy the `c3_openai_client/` directory into your project's `addons/` directory.
