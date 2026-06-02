@@ -1,72 +1,65 @@
 extends Control
 
-# Different clients for different servers with different capabilities.
-@onready var client_llm: C3OpenAIClient = $C3OpenAIClientLLM
-@onready var client_voice: C3OpenAIClient = $C3OpenAIClientVoice
+@onready var client: C3OpenAIClient = $C3OpenAIClient
 
 @onready var audio_stream_player: AudioStreamPlayer = $AudioStreamPlayer
+@onready var label: Label = $ScrollContainer/Label
 
-const TTS_MODEL := "speaches-ai/Kokoro-82M-v1.0-ONNX-fp16"
-const STT_MODEL := "deepdml/faster-whisper-large-v3-turbo-ct2"
-const TTS_VOICE := "af_heart"
+const CHAT_MODEL := "gpt-5.4-mini"
+const TTS_MODEL := "tts-1"
+const TTS_VOICE := "alloy"
+const STT_MODEL := "whisper-1"
 
 
 func _ready() -> void:
-	# --- List models (both servers) ---
-	var llm_models_res := await client_llm.get_models()
-	var voice_models_res := await client_voice.get_models()
+	if not OS.get_environment("OPENAI_API_KEY"):
+		_quit_with_error("OPENAI_API_KEY environment variable is not set.")
+		return
 
-	if not llm_models_res.ok:
-		push_error("Error fetching LLM models: " + str(llm_models_res.error))
-		get_tree().quit()
-		return
-	if not voice_models_res.ok:
-		push_error("Error fetching voice models: " + str(voice_models_res.error))
-		get_tree().quit()
-		return
-	if llm_models_res.ids.is_empty():
-		push_error("No LLM models found.")
-		get_tree().quit()
-		return
-	if not voice_models_res.ids.has(TTS_MODEL):
-		push_error("TTS model not found: " + TTS_MODEL)
-		get_tree().quit()
-		return
-	if not voice_models_res.ids.has(STT_MODEL):
-		push_error("STT model not found: " + STT_MODEL)
-		get_tree().quit()
+	client.api_key = OS.get_environment("OPENAI_API_KEY")
 
-	print("LLM Models:")
-	for model_id in llm_models_res.ids:
-		print(model_id)
-	print("\nVoice Models:")
-	for model_id in voice_models_res.ids:
-		print(model_id)
-	print("\n---")
-
-	# --- Chat (LLM server) ---
-	var user_msg_str_llm := "What is the meaning of life?"
+	# --- Chat: non-streaming ---
+	_render_text("Chat completion (non-streaming):")
+	var user_msg_str_llm := "What is an LLM?"
 	var messages = [
 		C3OpenAIClient.make_system_msg(
-			"You are a funny assistant that only responds in rhymes."
+			"You are an assistant that gives one-sentence responses."
 		),
 		C3OpenAIClient.make_user_msg(user_msg_str_llm)
 	]
 	var opts := C3OpenAIClient.ChatOptions.new()
-	opts.model = llm_models_res.ids[0]
-	var completion_res := await client_llm.chat_completion(messages, opts)
+	opts.model = CHAT_MODEL
+	var completion_res := await client.chat_completion(messages, opts)
 	if not completion_res.ok:
-		push_error("Error generating chat completion: " + str(completion_res.error))
-		get_tree().quit()
+		_quit_with_error("Error generating chat completion: " + str(completion_res.error))
 		return
 
-	print("Chat completion:")
-	print("User: " + user_msg_str_llm)
-	print("Assistant: " + completion_res.content)
-	print("---")
+	_render_text("User: " + user_msg_str_llm)
+	_render_text("Assistant: " + completion_res.content)
+	_render_text("---")
 
-	# --- Vision (LLM server) ---
-	var user_msg_str_vision := "What do you see in this image?"
+	# --- Streaming chat ---
+	_render_text("Chat completion (streaming):")
+	var streaming_messages = [C3OpenAIClient.make_user_msg("Count to ten.")]
+	var streaming_opts := C3OpenAIClient.ChatOptions.new()
+	streaming_opts.model = CHAT_MODEL
+
+	var stream := client.chat_completion_stream(streaming_messages, streaming_opts)
+
+	# Incremental updates as tokens arrive:
+	stream.delta.connect(func(text: String) -> void: _render_text(text, ""))
+
+	# Final result — same struct chat_completion() returns:
+	var result: C3OpenAIClient.ChatCompletionResponse = await stream.finished
+	if not result.ok:
+		_quit_with_error("Error streaming chat completion: " + str(result.error))
+		return
+
+	_render_text("\n(full content: %d chars)\n---" % result.content.length())
+
+	# --- Vision ---
+	_render_text("Vision chat completion:")
+	var user_msg_str_vision := "What do you see in this image? Describe in one sentence."
 	var img := (
 		(load("res://examples/openai_client_demo/test-img.jpg") as Texture2D)
 		. get_image()
@@ -78,43 +71,53 @@ func _ready() -> void:
 			C3OpenAIClient.make_part_image_url("data:image/jpeg;base64," + b64),
 		])
 	]
-	var vision_completion_res := await client_llm.chat_completion(
-		vision_messages, opts
-	)
+	var vision_completion_res := await client.chat_completion(vision_messages, opts)
 	if not vision_completion_res.ok:
-		push_error("Error generating image chat completion:" + str(vision_completion_res.error))
-		get_tree().quit()
+		_quit_with_error(
+			"Error generating image chat completion:"
+			+ str(vision_completion_res.error)
+		)
 		return
 
-	print("Vision chat completion:")
-	print("User: " + user_msg_str_vision)
-	print("Assistant: " + vision_completion_res.content)
-	print("---")
+	_render_text("User: " + user_msg_str_vision)
+	_render_text("Assistant: " + vision_completion_res.content)
+	_render_text("---")
 
-	# --- Text-to-speech (voice server) ---
+	# --- Text-to-speech ---
 	var speech_opts := C3OpenAIClient.SpeechOptions.new()
 	speech_opts.model = TTS_MODEL
 	speech_opts.voice = TTS_VOICE
-	var speech_res := await client_voice.create_speech(completion_res.content, speech_opts)
+	var speech_res := await client.create_speech(completion_res.content, speech_opts)
 	if not speech_res.ok:
 		push_error("Error generating speech: " + str(speech_res.error))
 		get_tree().quit()
 		return
 	audio_stream_player.stream = speech_res.stream
-	print("Playing speech...\n---")
+	_render_text("Playing speech...\n---")
 	audio_stream_player.play()
 
-	# --- Speech-to-text (voice server) ---
+	# --- Speech-to-text ---
 	var clip := load("res://examples/openai_client_demo/demo-speech.mp3")
 	var transcribe_opts := C3OpenAIClient.TranscriptionOptions.new()
 	transcribe_opts.model = STT_MODEL
-	var transcription_res := await client_voice.create_transcription(
-		clip, transcribe_opts
-	)
+	var transcription_res := await client.create_transcription(clip, transcribe_opts)
 	if not transcription_res.ok:
-		push_error("Error generating transcription: " + str(transcription_res.error))
-		get_tree().quit()
+		_quit_with_error("Error generating transcription: " + str(transcription_res.error))
 		return
-	print("Transcription: " + transcription_res.text)
-	await audio_stream_player.finished
+	_render_text("Transcription: " + transcription_res.text)
+
+
+func _quit_with_error(err: String) -> void:
+	push_error(err)
+	await get_tree().process_frame
+	get_tree().quit()
+
+
+func _render_text(txt: String, end: String = "\n") -> void:
+	print(txt)
+	label.text += txt + end
+
+
+func _quit() -> void:
+	await get_tree().process_frame
 	get_tree().quit()

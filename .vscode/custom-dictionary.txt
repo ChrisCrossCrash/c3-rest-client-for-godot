@@ -1,4 +1,5 @@
 ADPCM
+alives
 autofree
 CAPSLOCK
 ceili
@@ -44,6 +45,7 @@ speaches
 stylebox
 subdirs
 tscn
+Userinfo
 VOLUMEDOWN
 VOLUMEMUTE
 VOLUMEUP

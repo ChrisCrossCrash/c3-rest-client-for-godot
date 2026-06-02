@@ -79,6 +79,130 @@ class ChatCompletionResponse:
 	var usage: Dictionary = {}
 
 
+## A handle to an in-progress streaming chat completion, returned by
+## [method chat_completion_stream]. Emits [signal delta] as text arrives and
+## [signal finished] exactly once when the stream ends.
+class ChatStream:
+	extends Node
+
+	## Emitted for each incremental piece of generated text as it arrives.
+	signal delta(text: String)
+	## Emitted exactly once when the stream ends — on success, on error, or
+	## after [method cancel]. Carries the same [ChatCompletionResponse] that
+	## [method chat_completion] returns.
+	signal finished(result: ChatCompletionResponse)
+
+	var _sse: C3SSERequest
+	var _client: C3OpenAIClient
+	var _res := ChatCompletionResponse.new()
+	var _content := ""
+	var _refusal := ""
+	var _done := false
+
+	# Kicks off the request. Called by chat_completion_stream() right after the
+	# stream is added to the tree.
+	func _start(
+		sse: C3SSERequest,
+		url: String,
+		headers: PackedStringArray,
+		body: String,
+		client: C3OpenAIClient
+	) -> void:
+		_client = client
+		_sse = sse
+		add_child(_sse)
+		_sse.stream_started.connect(_on_stream_started)
+		_sse.event_received.connect(_on_event_received)
+		_sse.finished.connect(_on_sse_finished)
+		_sse.request_failed.connect(_on_sse_request_failed)
+		var err := _sse.request(url, headers, HTTPClient.METHOD_POST, body)
+		if err != OK:
+			# Defer so the caller can connect to `finished` before it fires —
+			# _start() runs synchronously inside chat_completion_stream().
+			_resolve.call_deferred(false, {"error": err}, true)
+
+	## Aborts the in-flight request and resolves [signal finished] with
+	## [member ChatCompletionResponse.ok] set to [code]false[/code].
+	func cancel() -> void:
+		_resolve(false, {"message": "Stream cancelled."}, false)
+
+	func _on_stream_started(code: int, _headers: PackedStringArray) -> void:
+		if code != 200:
+			_resolve(
+				false,
+				{
+					"message": "Streaming request returned status %d." % code,
+					"status": code,
+				},
+				true
+			)
+
+	func _on_event_received(data: String, _event_type: String) -> void:
+		if _done or data == "[DONE]":
+			return
+		var parser := JSON.new()
+		if parser.parse(data) != OK:
+			return
+		var json: Variant = parser.get_data()
+		if not json is Dictionary:
+			return
+		var json_dict: Dictionary = json
+		var model: Variant = json_dict.get("model")
+		if model is String and not (model as String).is_empty():
+			_res.model = model
+		var raw_usage: Variant = json_dict.get("usage")
+		if raw_usage is Dictionary:
+			_res.usage = {
+				"prompt_tokens": int(raw_usage.get("prompt_tokens", 0)),
+				"completion_tokens": int(raw_usage.get("completion_tokens", 0)),
+				"total_tokens": int(raw_usage.get("total_tokens", 0)),
+			}
+		var choices: Variant = json_dict.get("choices")
+		if not choices is Array or (choices as Array).is_empty():
+			return
+		var choice: Dictionary = (choices as Array)[0]
+		var finish_reason: Variant = choice.get("finish_reason")
+		if finish_reason is String:
+			_res.finish_reason = finish_reason
+		var delta_obj: Variant = choice.get("delta")
+		if not delta_obj is Dictionary:
+			return
+		var delta_dict: Dictionary = delta_obj
+		var piece: Variant = delta_dict.get("content")
+		if piece is String and not (piece as String).is_empty():
+			_content += piece
+			delta.emit(piece)
+		var refusal_piece: Variant = delta_dict.get("refusal")
+		if refusal_piece is String:
+			_refusal += refusal_piece
+
+	func _on_sse_finished() -> void:
+		_resolve(true, {}, false)
+
+	func _on_sse_request_failed(reason: String) -> void:
+		_resolve(false, {"message": reason}, true)
+
+	# Single exit point: fills in the result, tears down the SSE node, and emits
+	# finished once. `broadcast` re-emits the client's request_failed signal for
+	# genuine failures (not user cancellation), mirroring chat_completion().
+	func _resolve(ok: bool, error: Dictionary, broadcast: bool) -> void:
+		if _done:
+			return
+		_done = true
+		_res.ok = ok
+		_res.error = error
+		if ok:
+			_res.content = _content
+			_res.refusal = _refusal
+		if is_instance_valid(_sse):
+			_sse.queue_free()
+			_sse = null
+		if broadcast and is_instance_valid(_client):
+			_client.request_failed.emit(error)
+		finished.emit(_res)
+		queue_free()
+
+
 ## The response returned by [method get_models].
 class ModelsResponse:
 	## [code]true[/code] if the request succeeded.
@@ -115,23 +239,7 @@ func chat_completion(
 ) -> ChatCompletionResponse:
 	if opts == null:
 		opts = ChatOptions.new()
-	if opts.model.is_empty():
-		push_warning(
-			(
-				"C3OpenAIClient: opts.model is empty — using server default. "
-				+ "Set opts.model explicitly when targeting OpenAI."
-			)
-		)
-	var body: Dictionary = {
-		"model": opts.model,
-		"messages": messages,
-	}
-	if not is_nan(opts.temperature):
-		body["temperature"] = opts.temperature
-	if opts.max_tokens != -1:
-		body["max_tokens"] = opts.max_tokens
-	if not opts.stop.is_empty():
-		body["stop"] = opts.stop
+	var body := _build_chat_body(messages, opts)
 	var response := await _http_post(
 		base_url + "/chat/completions", body, _headers()
 	)
@@ -175,6 +283,60 @@ func chat_completion(
 		"total_tokens": int(raw_usage.get("total_tokens", 0)),
 	}
 	return res
+
+
+## Sends a streaming chat completion request and returns a [ChatStream] handle.
+## Connect to [signal ChatStream.delta] for incremental text and
+## [code]await[/code] [signal ChatStream.finished] for the final
+## [ChatCompletionResponse]. On a non-200 response or transport error the
+## result's [member ChatCompletionResponse.ok] is [code]false[/code] and
+## [signal request_failed] is emitted, mirroring [method chat_completion].
+func chat_completion_stream(
+	messages: Array, opts: ChatOptions = null
+) -> ChatStream:
+	if opts == null:
+		opts = ChatOptions.new()
+	var body := _build_chat_body(messages, opts)
+	body["stream"] = true
+	var stream := ChatStream.new()
+	add_child(stream)
+	stream._start(
+		_make_sse_request(),
+		base_url + "/chat/completions",
+		_headers(),
+		JSON.stringify(body),
+		self
+	)
+	return stream
+
+
+# Creates the [C3SSERequest] used by [method chat_completion_stream].
+# Overridable in tests to substitute a fake transport.
+func _make_sse_request() -> C3SSERequest:
+	return C3SSERequest.new()
+
+
+# Assembles the JSON request body shared by chat_completion() and
+# chat_completion_stream(). Warns when no model is set.
+func _build_chat_body(messages: Array, opts: ChatOptions) -> Dictionary:
+	if opts.model.is_empty():
+		push_warning(
+			(
+				"C3OpenAIClient: opts.model is empty — using server default. "
+				+ "Set opts.model explicitly when targeting OpenAI."
+			)
+		)
+	var body: Dictionary = {
+		"model": opts.model,
+		"messages": messages,
+	}
+	if not is_nan(opts.temperature):
+		body["temperature"] = opts.temperature
+	if opts.max_tokens != -1:
+		body["max_tokens"] = opts.max_tokens
+	if not opts.stop.is_empty():
+		body["stop"] = opts.stop
+	return body
 
 
 ## Helper function for constructing a user message

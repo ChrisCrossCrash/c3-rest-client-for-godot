@@ -6,7 +6,7 @@ A drop-in Godot 4 client node for OpenAI-compatible HTTP APIs. Works with [OpenA
 
 ## Features
 
-- Chat completions with vision (image input) support
+- Chat completions — non-streaming or streaming (token-by-token via signals), with vision (image input) support
 - Text-to-speech (returns a ready-to-play `AudioStream`)
 - Speech-to-text / transcription (`AudioStreamMP3` and `AudioStreamWAV`)
 - List available models
@@ -31,22 +31,22 @@ Copy the `c3_openai_client/` directory into your project's `addons/` directory.
 
     func _ready() -> void:
         # Get the API key from an environment variable and set it on the client.
-        # You can skip this step for servers that don't require authentication.
-        client.api_key = OS.get_environment("OPENAI_API_KEY")
+		# You can skip this step for servers that don't require authentication.
+		client.api_key = OS.get_environment("OPENAI_API_KEY")
 
-        var messages := [
-            C3OpenAIClient.make_system_msg("You are a helpful assistant."),
-            C3OpenAIClient.make_user_msg("What is the capital of France?"),
-        ]
-        var opts := C3OpenAIClient.ChatOptions.new()
-        opts.model = "gpt-5.4-mini"
+		var messages := [
+			C3OpenAIClient.make_system_msg("You are a helpful assistant."),
+			C3OpenAIClient.make_user_msg("What is the capital of France?"),
+		]
+		var opts := C3OpenAIClient.ChatOptions.new()
+		opts.model = "gpt-5.4-mini"
 
-        var res := await client.chat_completion(messages, opts)
-        if res.ok:
-            print(res.content)  # "The capital of France is Paris."
-        else:
-            push_error("Chat failed: " + str(res.error))
-    ```
+		var res := await client.chat_completion(messages, opts)
+		if res.ok:
+			print(res.content)  # "The capital of France is Paris."
+		else:
+			push_error("Chat failed: " + str(res.error))
+	```
 
 ## Full example
 
