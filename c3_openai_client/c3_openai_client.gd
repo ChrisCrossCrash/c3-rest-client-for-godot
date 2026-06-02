@@ -3,10 +3,98 @@ class_name C3OpenAIClient
 extends Node
 ## General-purpose client for OpenAI-compatible HTTP APIs.
 
+## Structured error placed on the [code]error[/code] field of every response
+## object when [code]ok[/code] is [code]false[/code], and carried by
+## [signal request_failed].
+class ApiError:
+	## Broad category of failure:[br]
+	## [code]&"transport"[/code] — no usable HTTP response (DNS, connection, TLS,
+	## or the request could not be started).[br]
+	## [code]&"http"[/code] — a non-2xx status with no parseable API error body.[br]
+	## [code]&"api"[/code] — the server returned a structured error body.[br]
+	## [code]&"parse"[/code] — a 2xx body that could not be understood.[br]
+	## [code]&"client"[/code] — the request was rejected before being sent (e.g.
+	## an invalid argument).[br]
+	## [code]&"cancelled"[/code] — the caller aborted the request.
+	var kind: StringName = &""
+	## Human-readable description. Never empty.
+	var message: String = ""
+	## HTTP status code, or [code]0[/code] when not applicable.
+	var status: int = 0
+	## Machine-readable API error code (e.g. [code]"invalid_api_key"[/code]), or
+	## [code]""[/code] if absent.
+	var code: String = ""
+	## API error type (e.g. [code]"invalid_request_error"[/code]), or [code]""[/code].
+	var type: String = ""
+	## Raw response body, for debugging. May be [code]""[/code].
+	var raw: String = ""
+
+	## Builds an error for a transport-level failure with no usable HTTP response.
+	static func transport(p_message: String) -> ApiError:
+		var e := ApiError.new()
+		e.kind = &"transport"
+		e.message = p_message
+		return e
+
+	## Builds an error for a 2xx response whose body could not be understood.
+	static func parse_failure(p_message: String, p_raw: String = "") -> ApiError:
+		var e := ApiError.new()
+		e.kind = &"parse"
+		e.message = p_message
+		e.raw = p_raw
+		return e
+
+	## Builds an error for a caller-initiated cancellation.
+	static func cancelled(p_message: String) -> ApiError:
+		var e := ApiError.new()
+		e.kind = &"cancelled"
+		e.message = p_message
+		return e
+
+	## Builds an error for a request rejected before being sent (bad argument).
+	static func client_error(p_message: String) -> ApiError:
+		var e := ApiError.new()
+		e.kind = &"client"
+		e.message = p_message
+		return e
+
+	## Builds an error from a non-2xx response, pulling the server's own
+	## [code]{"error": {...}}[/code] body when present. Falls back to a generic
+	## HTTP-status message otherwise.
+	static func from_response(p_status: int, body: PackedByteArray) -> ApiError:
+		var e := ApiError.new()
+		e.kind = &"http"
+		e.status = p_status
+		e.raw = body.get_string_from_utf8()
+		e.message = "Request failed with status %d." % p_status
+		var parser := JSON.new()
+		if parser.parse(e.raw) == OK and parser.get_data() is Dictionary:
+			var api_err: Variant = (parser.get_data() as Dictionary).get("error")
+			if api_err is Dictionary:
+				var d: Dictionary = api_err
+				e.kind = &"api"
+				if d.get("message") is String:
+					e.message = d["message"]
+				if d.get("code") is String:
+					e.code = d["code"]
+				if d.get("type") is String:
+					e.type = d["type"]
+		return e
+
+	func _to_string() -> String:
+		var parts := PackedStringArray(["[%s]" % kind])
+		if status != 0:
+			parts.append("status=%d" % status)
+		if not code.is_empty():
+			parts.append("code=%s" % code)
+		parts.append(message)
+		return " ".join(parts)
+
+
 ## Emitted when a request fails. The [member ok] field of the returned response
 ## object is the primary way to detect failure; this signal is a secondary
 ## broadcast for optional cross-cutting concerns such as global error logging.
-signal request_failed(error: Dictionary)
+signal request_failed(error: ApiError)
 
 ## The base URL of the OpenAI-compatible API, including the version path.
 ## For example, [code]"https://api.openai.com/v1"[/code] for OpenAI or
@@ -34,7 +122,7 @@ class SpeechResponse:
 	## [code]true[/code] if the request succeeded.
 	var ok: bool = true
 	## Populated with error details when [member ok] is [code]false[/code].
-	var error: Dictionary = {}
+	var error: ApiError = null
 	## The resulting audio stream. Only valid when [member ok] is [code]true[/code].
 	var stream: AudioStream
 
@@ -44,7 +132,7 @@ class TranscriptionResponse:
 	## [code]true[/code] if the request succeeded.
 	var ok: bool = true
 	## Populated with error details when [member ok] is [code]false[/code].
-	var error: Dictionary = {}
+	var error: ApiError = null
 	var text: String = ""
 
 
@@ -71,7 +159,7 @@ class ChatCompletionResponse:
 	## [code]true[/code] if the request succeeded.
 	var ok: bool = true
 	## Populated with error details when [member ok] is [code]false[/code].
-	var error: Dictionary = {}
+	var error: ApiError = null
 	var content: String = ""
 	var refusal: String = ""
 	var finish_reason: String = ""
@@ -111,31 +199,27 @@ class ChatStream:
 		_client = client
 		_sse = sse
 		add_child(_sse)
-		_sse.stream_started.connect(_on_stream_started)
 		_sse.event_received.connect(_on_event_received)
 		_sse.finished.connect(_on_sse_finished)
+		_sse.response_error.connect(_on_response_error)
 		_sse.request_failed.connect(_on_sse_request_failed)
 		var err := _sse.request(url, headers, HTTPClient.METHOD_POST, body)
 		if err != OK:
 			# Defer so the caller can connect to `finished` before it fires —
 			# _start() runs synchronously inside chat_completion_stream().
-			_resolve.call_deferred(false, {"error": err}, true)
+			_resolve.call_deferred(
+				false,
+				ApiError.transport("Failed to start stream request (error %d)." % err),
+				true
+			)
 
 	## Aborts the in-flight request and resolves [signal finished] with
 	## [member ChatCompletionResponse.ok] set to [code]false[/code].
 	func cancel() -> void:
-		_resolve(false, {"message": "Stream cancelled."}, false)
+		_resolve(false, ApiError.cancelled("Stream cancelled."), false)
 
-	func _on_stream_started(code: int, _headers: PackedStringArray) -> void:
-		if code != 200:
-			_resolve(
-				false,
-				{
-					"message": "Streaming request returned status %d." % code,
-					"status": code,
-				},
-				true
-			)
+	func _on_response_error(code: int, body: String) -> void:
+		_resolve(false, ApiError.from_response(code, body.to_utf8_buffer()), true)
 
 	func _on_event_received(data: String, _event_type: String) -> void:
 		if _done or data == "[DONE]":
@@ -177,15 +261,15 @@ class ChatStream:
 			_refusal += refusal_piece
 
 	func _on_sse_finished() -> void:
-		_resolve(true, {}, false)
+		_resolve(true, null, false)
 
 	func _on_sse_request_failed(reason: String) -> void:
-		_resolve(false, {"message": reason}, true)
+		_resolve(false, ApiError.transport(reason), true)
 
 	# Single exit point: fills in the result, tears down the SSE node, and emits
 	# finished once. `broadcast` re-emits the client's request_failed signal for
 	# genuine failures (not user cancellation), mirroring chat_completion().
-	func _resolve(ok: bool, error: Dictionary, broadcast: bool) -> void:
+	func _resolve(ok: bool, error: ApiError, broadcast: bool) -> void:
 		if _done:
 			return
 		_done = true
@@ -208,7 +292,7 @@ class ModelsResponse:
 	## [code]true[/code] if the request succeeded.
 	var ok: bool = true
 	## Populated with error details when [member ok] is [code]false[/code].
-	var error: Dictionary = {}
+	var error: ApiError = null
 	var ids: PackedStringArray = PackedStringArray()
 
 
@@ -223,11 +307,28 @@ func get_models() -> ModelsResponse:
 		res.error = response["error"]
 		request_failed.emit(res.error)
 		return res
+	var body_str := (response["body"] as PackedByteArray).get_string_from_utf8()
 	var parser := JSON.new()
-	parser.parse((response["body"] as PackedByteArray).get_string_from_utf8())
+	if parser.parse(body_str) != OK:
+		res.ok = false
+		res.error = ApiError.parse_failure(
+			"Failed to parse models response as JSON.", body_str
+		)
+		request_failed.emit(res.error)
+		return res
 	var json: Variant = parser.get_data()
-	for m in json.get("data", []):
-		res.ids.append(m["id"])
+	var data: Variant = json.get("data") if json is Dictionary else null
+	if not data is Array:
+		res.ok = false
+		res.error = ApiError.parse_failure(
+			"Models response JSON missing \"data\" array.", body_str
+		)
+		request_failed.emit(res.error)
+		return res
+	# Skip malformed entries rather than failing the whole list.
+	for m in (data as Array):
+		if m is Dictionary and (m as Dictionary).get("id") is String:
+			res.ids.append((m as Dictionary)["id"])
 	return res
 
 
@@ -249,22 +350,22 @@ func chat_completion(
 		res.error = response["error"]
 		request_failed.emit(res.error)
 		return res
+	var body_str := (response["body"] as PackedByteArray).get_string_from_utf8()
 	var parser := JSON.new()
-	if (
-		parser.parse(
-			(response["body"] as PackedByteArray).get_string_from_utf8()
-		)
-		!= OK
-	):
+	if parser.parse(body_str) != OK:
 		res.ok = false
-		res.error = {"message": "Failed to parse response body as JSON."}
+		res.error = ApiError.parse_failure(
+			"Failed to parse response body as JSON.", body_str
+		)
 		request_failed.emit(res.error)
 		return res
 	var json: Variant = parser.get_data()
 	var choices: Variant = json.get("choices") if json is Dictionary else null
 	if not choices is Array or (choices as Array).is_empty():
 		res.ok = false
-		res.error = {"message": "Response JSON missing choices."}
+		res.error = ApiError.parse_failure(
+			"Response JSON missing choices.", body_str
+		)
 		request_failed.emit(res.error)
 		return res
 	var json_dict: Dictionary = json
@@ -450,7 +551,7 @@ func create_transcription(
 			"C3OpenAIClient: Unsupported AudioStream type. Only AudioStreamMP3 and AudioStreamWAV are supported."
 		)
 		res.ok = false
-		res.error = {"message": "Unsupported AudioStream type."}
+		res.error = ApiError.client_error("Unsupported AudioStream type.")
 		return res
 	var form_fields: Dictionary = {"model": opts.model}
 	if not opts.language.is_empty():
@@ -473,9 +574,9 @@ func create_transcription(
 	var body_str := (response["body"] as PackedByteArray).get_string_from_utf8()
 	if parser.parse(body_str) != OK:
 		res.ok = false
-		res.error = {
-			"message": "Failed to parse transcription response as JSON."
-		}
+		res.error = ApiError.parse_failure(
+			"Failed to parse transcription response as JSON.", body_str
+		)
 		request_failed.emit(res.error)
 		return res
 	var json: Variant = parser.get_data()
@@ -590,13 +691,12 @@ func _http_request(
 	var err := req.request(url, headers, method, body)
 	if err != OK:
 		req.queue_free()
-		return {"ok": false, "error": {"error": err}}
+		return {"ok": false, "error": ApiError.transport(
+			"Failed to start request (error %d)." % err
+		)}
 	var args: Array = await req.request_completed
 	req.queue_free()
-	var result: int = args[0]
-	if result != HTTPRequest.RESULT_SUCCESS:
-		return {"ok": false, "error": {"result": result}}
-	return {"ok": true, "body": args[3] as PackedByteArray}
+	return _process_http_result(args)
 
 
 func _http_request_raw(
@@ -607,13 +707,28 @@ func _http_request_raw(
 	var err := req.request_raw(url, headers, method, body)
 	if err != OK:
 		req.queue_free()
-		return {"ok": false, "error": {"error": err}}
+		return {"ok": false, "error": ApiError.transport(
+			"Failed to start request (error %d)." % err
+		)}
 	var args: Array = await req.request_completed
 	req.queue_free()
+	return _process_http_result(args)
+
+
+# Maps the HTTPRequest.request_completed arguments to the shared response shape:
+# {"ok": true, "body": PackedByteArray} on a 2xx response, or
+# {"ok": false, "error": ApiError} on a transport failure or non-2xx status.
+func _process_http_result(args: Array) -> Dictionary:
 	var result: int = args[0]
+	var status: int = args[1]
+	var resp_body: PackedByteArray = args[3]
 	if result != HTTPRequest.RESULT_SUCCESS:
-		return {"ok": false, "error": {"result": result}}
-	return {"ok": true, "body": args[3] as PackedByteArray}
+		return {"ok": false, "error": ApiError.transport(
+			"HTTP transport failed (result %d)." % result
+		)}
+	if status < 200 or status >= 300:
+		return {"ok": false, "error": ApiError.from_response(status, resp_body)}
+	return {"ok": true, "body": resp_body}
 
 
 func _headers() -> PackedStringArray:

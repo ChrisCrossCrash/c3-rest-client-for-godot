@@ -196,20 +196,54 @@ class TestChatCompletionStream extends GutTest:
 	func test_non_200_resolves_failed() -> void:
 		var stream := start_stream()
 		var captured := capture_finished(stream)
-		client.last_sse.stream_started.emit(404, PackedStringArray())
+		client.last_sse.response_error.emit(404, "")
 		assert_false(captured[0].ok)
 
 	func test_non_200_error_has_status() -> void:
 		var stream := start_stream()
 		var captured := capture_finished(stream)
-		client.last_sse.stream_started.emit(404, PackedStringArray())
-		assert_eq(captured[0].error["status"], 404)
+		client.last_sse.response_error.emit(404, "")
+		assert_eq(captured[0].error.status, 404)
 
 	func test_non_200_emits_request_failed() -> void:
 		start_stream()
 		watch_signals(client)
-		client.last_sse.stream_started.emit(500, PackedStringArray())
+		client.last_sse.response_error.emit(500, "")
 		assert_signal_emitted(client, "request_failed")
+
+	func test_non_200_error_body_parsed_as_api_error() -> void:
+		var stream := start_stream()
+		var captured := capture_finished(stream)
+		var body := JSON.stringify(
+			{"error": {"message": "Bad key.", "code": "invalid_api_key"}}
+		)
+		client.last_sse.response_error.emit(401, body)
+		var err: C3OpenAIClient.ApiError = captured[0].error
+		assert_eq(err.kind, &"api")
+		assert_eq(err.status, 401)
+		assert_eq(err.code, "invalid_api_key")
+		assert_eq(err.message, "Bad key.")
+
+	func test_non_200_empty_body_is_http_kind() -> void:
+		var stream := start_stream()
+		var captured := capture_finished(stream)
+		client.last_sse.response_error.emit(503, "")
+		var err: C3OpenAIClient.ApiError = captured[0].error
+		assert_eq(err.kind, &"http")
+		assert_eq(err.message, "Request failed with status 503.")
+
+	func test_transport_failure_error_is_transport_kind() -> void:
+		var stream := start_stream()
+		var captured := capture_finished(stream)
+		client.last_sse.request_failed.emit("Could not connect.")
+		assert_eq(captured[0].error.kind, &"transport")
+
+	func test_cancel_error_is_cancelled_kind() -> void:
+		var stream := start_stream()
+		var captured := capture_finished(stream)
+		client.last_sse.stream_started.emit(200, PackedStringArray())
+		stream.cancel()
+		assert_eq(captured[0].error.kind, &"cancelled")
 
 	func test_transport_failure_resolves_failed() -> void:
 		var stream := start_stream()

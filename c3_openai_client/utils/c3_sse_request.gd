@@ -1,8 +1,6 @@
 # C3 Godot Utils
-# v4.1.0
+# 4.2.0
 # File revision: 2026-06-02
-# MIT License
-# https://github.com/ChrisCrossCrash/c3-godot-utils/blob/a90ad69ff6c6264fb9d7b6677de24788f92415bd/c3_utils/c3_sse_request.gd
 
 class_name C3SSERequest
 extends Node
@@ -29,14 +27,20 @@ signal stream_started(response_code: int, headers: PackedStringArray)
 signal event_received(data: String, event_type: String)
 ## The stream closed cleanly (socket end or server hang-up).
 signal finished()
+## The server responded with a non-2xx status. Carries the full (non-SSE)
+## response body — typically a JSON error payload — once it has been read.
+## Emitted instead of [signal finished]; [signal stream_started] still fires
+## first so the response code is available either way.
+signal response_error(code: int, body: String)
 ## Something went wrong before or during the stream.
 signal request_failed(reason: String)
 
-enum _State { IDLE, CONNECTING, REQUESTING, STREAMING }
+enum _State { IDLE, CONNECTING, REQUESTING, STREAMING, ERROR_BODY }
 
 var _client := HTTPClient.new()
 var _state := _State.IDLE
 var _buffer := ""
+var _response_code := 0
 
 # Request parameters, captured at request() time and used once CONNECTED.
 var _host := ""
@@ -136,23 +140,35 @@ func _process(_delta: float) -> void:
 		_State.REQUESTING:
 			match status:
 				HTTPClient.STATUS_BODY:
+					_response_code = _client.get_response_code()
 					stream_started.emit(
-						_client.get_response_code(),
-						_client.get_response_headers()
+						_response_code, _client.get_response_headers()
 					)
-					_state = _State.STREAMING
+					# A non-2xx body is a regular (non-SSE) payload — usually a
+					# JSON error. Collect it raw rather than parsing SSE events.
+					_state = (
+						_State.STREAMING if _is_ok(_response_code)
+						else _State.ERROR_BODY
+					)
 				HTTPClient.STATUS_CONNECTED:
 					# Response carried no body (e.g. 204). Started and done.
+					_response_code = _client.get_response_code()
 					stream_started.emit(
-						_client.get_response_code(),
-						_client.get_response_headers()
+						_response_code, _client.get_response_headers()
 					)
-					_finish()
+					if _is_ok(_response_code):
+						_finish()
+					else:
+						_reset()
+						response_error.emit(_response_code, "")
 				HTTPClient.STATUS_CONNECTION_ERROR, HTTPClient.STATUS_DISCONNECTED:
 					_fail("Connection lost while awaiting response.")
 
 		_State.STREAMING:
 			_stream_step()
+
+		_State.ERROR_BODY:
+			_error_body_step()
 
 
 func _send_request() -> void:
@@ -161,6 +177,10 @@ func _send_request() -> void:
 		_fail("Failed to send request (error %d)." % err)
 		return
 	_state = _State.REQUESTING
+
+
+func _is_ok(code: int) -> bool:
+	return code >= 200 and code < 300
 
 
 func _stream_step() -> void:
@@ -177,6 +197,25 @@ func _stream_step() -> void:
 	# Body status drops once the server closes its end: stream is over.
 	if _client.get_status() != HTTPClient.STATUS_BODY:
 		_finish()
+
+
+# Accumulate a non-2xx response body (a plain payload, not SSE) and hand it off
+# once the server closes its end.
+func _error_body_step() -> void:
+	while true:
+		var chunk := _client.read_response_body_chunk()
+		if chunk.size() == 0:
+			break
+		_buffer += chunk.get_string_from_utf8()
+
+	if _client.get_status() != HTTPClient.STATUS_BODY:
+		_finish_error_body()
+
+
+func _finish_error_body() -> void:
+	var body := _buffer
+	_reset()
+	response_error.emit(_response_code, body)
 
 
 # Carve complete `\n\n`-delimited events out of the buffer and dispatch each.

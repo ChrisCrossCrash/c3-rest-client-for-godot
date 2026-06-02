@@ -116,14 +116,16 @@ class TestCreateTranscription extends GutTest:
 
 	func test_returns_failed_response_on_network_error() -> void:
 		client.preset_response = {
-			"ok": false, "error": {"error": ERR_CANT_CONNECT}
+			"ok": false,
+			"error": C3OpenAIClient.ApiError.transport("Could not connect.")
 		}
 		var result := await client.create_transcription(make_mp3_stream())
 		assert_false(result.ok)
 
 	func test_emits_request_failed_on_network_error() -> void:
 		client.preset_response = {
-			"ok": false, "error": {"error": ERR_CANT_CONNECT}
+			"ok": false,
+			"error": C3OpenAIClient.ApiError.transport("Could not connect.")
 		}
 		watch_signals(client)
 		await client.create_transcription(make_mp3_stream())
@@ -132,7 +134,7 @@ class TestCreateTranscription extends GutTest:
 	func test_returns_failed_response_on_http_failure() -> void:
 		client.preset_response = {
 			"ok": false,
-			"error": {"result": HTTPRequest.RESULT_CONNECTION_ERROR}
+			"error": C3OpenAIClient.ApiError.transport("Connection error.")
 		}
 		var result := await client.create_transcription(make_mp3_stream())
 		assert_false(result.ok)
@@ -140,7 +142,7 @@ class TestCreateTranscription extends GutTest:
 	func test_emits_request_failed_on_http_failure() -> void:
 		client.preset_response = {
 			"ok": false,
-			"error": {"result": HTTPRequest.RESULT_CONNECTION_ERROR}
+			"error": C3OpenAIClient.ApiError.transport("Connection error.")
 		}
 		watch_signals(client)
 		await client.create_transcription(make_mp3_stream())
@@ -152,6 +154,7 @@ class TestCreateTranscription extends GutTest:
 		}
 		var result := await client.create_transcription(make_mp3_stream())
 		assert_false(result.ok)
+		assert_eq(result.error.kind, &"parse")
 
 	func test_emits_request_failed_on_invalid_json() -> void:
 		client.preset_response = {
@@ -160,3 +163,10 @@ class TestCreateTranscription extends GutTest:
 		watch_signals(client)
 		await client.create_transcription(make_mp3_stream())
 		assert_signal_emitted(client, "request_failed")
+
+	func test_unsupported_audio_type_is_client_error() -> void:
+		var result := await client.create_transcription(AudioStreamGenerator.new())
+		assert_false(result.ok)
+		assert_eq(result.error.kind, &"client")
+		assert_eq(client.request_log.size(), 0)
+		assert_push_error("Unsupported AudioStream type")

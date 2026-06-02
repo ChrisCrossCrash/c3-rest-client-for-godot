@@ -104,14 +104,16 @@ class TestCreateSpeech extends GutTest:
 
 	func test_returns_failed_response_on_network_error() -> void:
 		client.preset_response = {
-			"ok": false, "error": {"error": ERR_CANT_CONNECT}
+			"ok": false,
+			"error": C3OpenAIClient.ApiError.transport("Could not connect.")
 		}
 		var result := await client.create_speech("Hello")
 		assert_false(result.ok)
 
 	func test_emits_request_failed_on_network_error() -> void:
 		client.preset_response = {
-			"ok": false, "error": {"error": ERR_CANT_CONNECT}
+			"ok": false,
+			"error": C3OpenAIClient.ApiError.transport("Could not connect.")
 		}
 		watch_signals(client)
 		await client.create_speech("Hello")
@@ -120,7 +122,7 @@ class TestCreateSpeech extends GutTest:
 	func test_returns_failed_response_on_http_failure() -> void:
 		client.preset_response = {
 			"ok": false,
-			"error": {"result": HTTPRequest.RESULT_CONNECTION_ERROR}
+			"error": C3OpenAIClient.ApiError.transport("Connection error.")
 		}
 		var result := await client.create_speech("Hello")
 		assert_false(result.ok)
@@ -128,7 +130,7 @@ class TestCreateSpeech extends GutTest:
 	func test_emits_request_failed_on_http_failure() -> void:
 		client.preset_response = {
 			"ok": false,
-			"error": {"result": HTTPRequest.RESULT_CONNECTION_ERROR}
+			"error": C3OpenAIClient.ApiError.transport("Connection error.")
 		}
 		watch_signals(client)
 		await client.create_speech("Hello")

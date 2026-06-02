@@ -177,16 +177,26 @@ class TestChatCompletion extends GutTest:
 
 	func test_returns_failed_response_on_network_error() -> void:
 		client.preset_response = {
-			"ok": false, "error": {"error": ERR_CANT_CONNECT}
+			"ok": false,
+			"error": C3OpenAIClient.ApiError.transport("Could not connect.")
 		}
 		var result: C3OpenAIClient.ChatCompletionResponse = await (
 			client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
 		)
 		assert_false(result.ok)
 
+	func test_propagates_transport_error_unchanged() -> void:
+		var err := C3OpenAIClient.ApiError.transport("Could not connect.")
+		client.preset_response = {"ok": false, "error": err}
+		var result := await client.chat_completion(
+			[C3OpenAIClient.make_user_msg("Hello")]
+		)
+		assert_same(result.error, err)
+
 	func test_emits_request_failed_on_network_error() -> void:
 		client.preset_response = {
-			"ok": false, "error": {"error": ERR_CANT_CONNECT}
+			"ok": false,
+			"error": C3OpenAIClient.ApiError.transport("Could not connect.")
 		}
 		watch_signals(client)
 		await client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
@@ -195,7 +205,7 @@ class TestChatCompletion extends GutTest:
 	func test_returns_failed_response_on_http_failure() -> void:
 		client.preset_response = {
 			"ok": false,
-			"error": {"result": HTTPRequest.RESULT_CONNECTION_ERROR}
+			"error": C3OpenAIClient.ApiError.transport("Connection error.")
 		}
 		var result := await client.chat_completion(
 			[C3OpenAIClient.make_user_msg("Hello")]
@@ -205,7 +215,7 @@ class TestChatCompletion extends GutTest:
 	func test_emits_request_failed_on_http_failure() -> void:
 		client.preset_response = {
 			"ok": false,
-			"error": {"result": HTTPRequest.RESULT_CONNECTION_ERROR}
+			"error": C3OpenAIClient.ApiError.transport("Connection error.")
 		}
 		watch_signals(client)
 		await client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
@@ -219,6 +229,8 @@ class TestChatCompletion extends GutTest:
 			[C3OpenAIClient.make_user_msg("Hello")]
 		)
 		assert_false(result.ok)
+		assert_eq(result.error.kind, &"parse")
+		assert_eq(result.error.raw, "not json")
 
 	func test_emits_request_failed_on_invalid_json() -> void:
 		client.preset_response = {
@@ -236,6 +248,7 @@ class TestChatCompletion extends GutTest:
 			[C3OpenAIClient.make_user_msg("Hello")]
 		)
 		assert_false(result.ok)
+		assert_eq(result.error.kind, &"parse")
 
 	func test_emits_request_failed_on_empty_choices() -> void:
 		client.preset_response = {
