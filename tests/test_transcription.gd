@@ -1,6 +1,7 @@
 extends GutTest
 
 
+## Tests for [C3OpenAIClient.TranscriptionOptions] defaults.
 class TestTranscriptionOptions extends GutTest:
 	func test_default_model() -> void:
 		assert_eq(C3OpenAIClient.TranscriptionOptions.new().model, "")
@@ -9,6 +10,7 @@ class TestTranscriptionOptions extends GutTest:
 		assert_eq(C3OpenAIClient.TranscriptionOptions.new().language, "")
 
 
+## Tests for [method C3OpenAIClient.create_transcription].
 class TestCreateTranscription extends GutTest:
 	var client: C3TestDoubles.TestableClient
 
@@ -16,12 +18,15 @@ class TestCreateTranscription extends GutTest:
 		client = C3TestDoubles.TestableClient.new()
 		add_child_autofree(client)
 
+	## Returns a minimal JSON-encoded transcription response body.
 	func make_json_res(text: String) -> PackedByteArray:
 		return JSON.stringify({"text": text}).to_utf8_buffer()
 
+	## Loads and returns the test MP3 fixture.
 	func make_mp3_stream() -> AudioStreamMP3:
 		return load("res://tests/data/demo-speech.mp3") as AudioStreamMP3
 
+	## Creates a minimal in-memory WAV stream for testing.
 	func make_wav_stream() -> AudioStreamWAV:
 		var stream := AudioStreamWAV.new()
 		stream.mix_rate = 44100

@@ -1,6 +1,7 @@
 extends GutTest
 
 
+## Tests for [method C3OpenAIClient.chat_completion].
 class TestChatCompletion extends GutTest:
 	var client: C3TestDoubles.TestableClient
 
@@ -15,7 +16,7 @@ class TestChatCompletion extends GutTest:
 		model: String = "gpt-4o",
 		refusal: Variant = null
 	) -> String:
-		var content_to_send = null if refusal != null else (content as Variant)
+		var content_to_send: Variant = null if refusal != null else (content as Variant)
 		return JSON.stringify(
 			{
 				"id": "chatcmpl-abc",
@@ -48,7 +49,7 @@ class TestChatCompletion extends GutTest:
 		client.preset_response = {
 			"ok": true, "body": make_json_res("Hi").to_utf8_buffer()
 		}
-		var result: C3OpenAIClient.ChatCompletionResponse = await (
+		var result := await (
 			client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
 		)
 		assert_is(result, C3OpenAIClient.ChatCompletionResponse)
@@ -57,7 +58,7 @@ class TestChatCompletion extends GutTest:
 		client.preset_response = {
 			"ok": true, "body": make_json_res("Hello there!").to_utf8_buffer()
 		}
-		var result: C3OpenAIClient.ChatCompletionResponse = await (
+		var result := await (
 			client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
 		)
 		assert_eq(result.content, "Hello there!")
@@ -66,7 +67,7 @@ class TestChatCompletion extends GutTest:
 		client.preset_response = {
 			"ok": true, "body": make_json_res("Hi", "length").to_utf8_buffer()
 		}
-		var result: C3OpenAIClient.ChatCompletionResponse = await (
+		var result := await (
 			client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
 		)
 		assert_eq(result.finish_reason, "length")
@@ -76,7 +77,7 @@ class TestChatCompletion extends GutTest:
 			"ok": true,
 			"body": make_json_res("Hi", "stop", "llama-3.1-8b").to_utf8_buffer()
 		}
-		var result: C3OpenAIClient.ChatCompletionResponse = await (
+		var result := await (
 			client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
 		)
 		assert_eq(result.model, "llama-3.1-8b")
@@ -85,7 +86,7 @@ class TestChatCompletion extends GutTest:
 		client.preset_response = {
 			"ok": true, "body": make_json_res("Hi").to_utf8_buffer()
 		}
-		var result: C3OpenAIClient.ChatCompletionResponse = await (
+		var result := await (
 			client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
 		)
 		assert_eq(typeof(result.usage["prompt_tokens"]), TYPE_INT)
@@ -180,7 +181,7 @@ class TestChatCompletion extends GutTest:
 			"ok": false,
 			"error": C3OpenAIClient.ApiError.transport("Could not connect.")
 		}
-		var result: C3OpenAIClient.ChatCompletionResponse = await (
+		var result := await (
 			client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
 		)
 		assert_false(result.ok)
@@ -279,6 +280,7 @@ class TestChatCompletion extends GutTest:
 		assert_push_warning_count(0)
 
 
+## Tests for the HTTP headers assembled by [C3OpenAIClient].
 class TestHeaders extends GutTest:
 	var client: C3OpenAIClient
 

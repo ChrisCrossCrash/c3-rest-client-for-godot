@@ -1,5 +1,5 @@
-## Shared test doubles for [C3OpenAIClient] tests.
 class_name C3TestDoubles
+## Shared test doubles for [C3OpenAIClient] tests.
 
 
 ## Fake SSE transport that records the request and never touches the network.
@@ -35,7 +35,7 @@ class FakeSSERequest extends C3SSERequest:
 @warning_ignore("missing_tool")
 class TestableClient extends C3OpenAIClient:
 	## The response returned by [method _http_get] and [method _http_post]. Defaults to an empty success.
-	var preset_response: Dictionary = {"ok": true, "body": PackedByteArray()}
+	var preset_response := {"ok": true, "body": PackedByteArray()}
 	## Ordered log of all requests made.
 	## Each entry is:[br]
 	## [code]{"method": String, "url": String, "body": Variant, "headers": PackedStringArray}[/code].

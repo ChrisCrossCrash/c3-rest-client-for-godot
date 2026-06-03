@@ -4,96 +4,6 @@ extends Node
 ## General-purpose client for OpenAI-compatible HTTP APIs.
 
 
-## Structured error placed on the [code]error[/code] field of every response
-## object when [code]ok[/code] is [code]false[/code], and carried by
-## [signal request_failed].
-class ApiError:
-	## Broad category of failure:[br]
-	## [code]&"transport"[/code] — no usable HTTP response (DNS, connection, TLS,
-	## or the request could not be started).[br]
-	## [code]&"http"[/code] — a non-2xx status with no parseable API error body.[br]
-	## [code]&"api"[/code] — the server returned a structured error body.[br]
-	## [code]&"parse"[/code] — a 2xx body that could not be understood.[br]
-	## [code]&"client"[/code] — the request was rejected before being sent (e.g.
-	## an invalid argument).[br]
-	## [code]&"cancelled"[/code] — the caller aborted the request.
-	var kind: StringName = &""
-	## Human-readable description. Never empty.
-	var message: String = ""
-	## HTTP status code, or [code]0[/code] when not applicable.
-	var status: int = 0
-	## Machine-readable API error code (e.g. [code]"invalid_api_key"[/code]), or
-	## [code]""[/code] if absent.
-	var code: String = ""
-	## API error type (e.g. [code]"invalid_request_error"[/code]), or [code]""[/code].
-	var type: String = ""
-	## Raw response body, for debugging. May be [code]""[/code].
-	var raw: String = ""
-
-	## Builds an error for a transport-level failure with no usable HTTP response.
-	static func transport(p_message: String) -> ApiError:
-		var e := ApiError.new()
-		e.kind = &"transport"
-		e.message = p_message
-		return e
-
-	## Builds an error for a 2xx response whose body could not be understood.
-	static func parse_failure(
-		p_message: String, p_raw: String = ""
-	) -> ApiError:
-		var e := ApiError.new()
-		e.kind = &"parse"
-		e.message = p_message
-		e.raw = p_raw
-		return e
-
-	## Builds an error for a caller-initiated cancellation.
-	static func cancelled(p_message: String) -> ApiError:
-		var e := ApiError.new()
-		e.kind = &"cancelled"
-		e.message = p_message
-		return e
-
-	## Builds an error for a request rejected before being sent (bad argument).
-	static func client_error(p_message: String) -> ApiError:
-		var e := ApiError.new()
-		e.kind = &"client"
-		e.message = p_message
-		return e
-
-	## Builds an error from a non-2xx response, pulling the server's own
-	## [code]{"error": {...}}[/code] body when present. Falls back to a generic
-	## HTTP-status message otherwise.
-	static func from_response(p_status: int, body: PackedByteArray) -> ApiError:
-		var e := ApiError.new()
-		e.kind = &"http"
-		e.status = p_status
-		e.raw = body.get_string_from_utf8()
-		e.message = "Request failed with status %d." % p_status
-		var parser := JSON.new()
-		if parser.parse(e.raw) == OK and parser.get_data() is Dictionary:
-			var api_err: Variant = (parser.get_data() as Dictionary).get("error")
-			if api_err is Dictionary:
-				var d: Dictionary = api_err
-				e.kind = &"api"
-				if d.get("message") is String:
-					e.message = d["message"]
-				if d.get("code") is String:
-					e.code = d["code"]
-				if d.get("type") is String:
-					e.type = d["type"]
-		return e
-
-	func _to_string() -> String:
-		var parts := PackedStringArray(["[%s]" % kind])
-		if status != 0:
-			parts.append("status=%d" % status)
-		if not code.is_empty():
-			parts.append("code=%s" % code)
-		parts.append(message)
-		return " ".join(parts)
-
-
 ## Emitted when a request fails. The [member ok] field of the returned response
 ## object is the primary way to detect failure; this signal is a secondary
 ## broadcast for optional cross-cutting concerns such as global error logging.
@@ -105,202 +15,7 @@ signal request_failed(error: ApiError)
 @export var base_url: String = "http://127.0.0.1:1234/v1"
 ## The API key sent as a Bearer token in the [code]Authorization[/code] header.
 ## Set to any non-empty value for servers that don't require authentication.
-var api_key: String = "no-key"
-
-
-## Optional parameters for a text-to-speech request.
-class SpeechOptions:
-	var model: String = ""
-	var voice: String = ""
-	## Sample rate of the [code]"pcm"[/code] response. Must match the server's
-	## output. OpenAI and speaches both default to 24000 Hz.
-	var pcm_sample_rate: int = 24000
-	## Whether the [code]"pcm"[/code] response is stereo. Most TTS servers
-	## output mono. Set to [code]true[/code] if the server produces stereo PCM.
-	var pcm_stereo: bool = false
-
-
-## The response returned by [method create_speech].
-class SpeechResponse:
-	## [code]true[/code] if the request succeeded.
-	var ok: bool = true
-	## Populated with error details when [member ok] is [code]false[/code].
-	var error: ApiError = null
-	## The resulting audio stream. Only valid when [member ok] is [code]true[/code].
-	var stream: AudioStream
-
-
-## The response returned by [method create_transcription].
-class TranscriptionResponse:
-	## [code]true[/code] if the request succeeded.
-	var ok: bool = true
-	## Populated with error details when [member ok] is [code]false[/code].
-	var error: ApiError = null
-	var text: String = ""
-
-
-## Optional parameters for a transcription request.
-class TranscriptionOptions:
-	var model: String = ""
-	## BCP-47 language code (e.g. [code]"en"[/code]). Leave empty to auto-detect.
-	var language: String = ""
-
-
-## Optional parameters for a chat completion request.
-class ChatOptions:
-	var model: String = ""
-	## Leave as [constant @GDScript.NAN] to omit temperature from the request entirely.
-	var temperature: float = NAN
-	## Set to -1 to omit max_tokens from the request entirely.
-	var max_tokens: int = -1
-	## One or more sequences where generation stops. Leave empty to omit from the request.
-	var stop: PackedStringArray = PackedStringArray()
-
-
-## The response returned by [method chat_completion].
-class ChatCompletionResponse:
-	## [code]true[/code] if the request succeeded.
-	var ok: bool = true
-	## Populated with error details when [member ok] is [code]false[/code].
-	var error: ApiError = null
-	var content: String = ""
-	var refusal: String = ""
-	var finish_reason: String = ""
-	var model: String = ""
-	var usage: Dictionary = {}
-
-
-## A handle to an in-progress streaming chat completion, returned by
-## [method chat_completion_stream]. Emits [signal delta] as text arrives and
-## [signal finished] exactly once when the stream ends.
-class ChatStream:
-	extends Node
-
-	## Emitted for each incremental piece of generated text as it arrives.
-	signal delta(text: String)
-	## Emitted exactly once when the stream ends — on success, on error, or
-	## after [method cancel]. Carries the same [ChatCompletionResponse] that
-	## [method chat_completion] returns.
-	signal finished(result: ChatCompletionResponse)
-
-	var _sse: C3SSERequest
-	var _client: C3OpenAIClient
-	var _res := ChatCompletionResponse.new()
-	var _content := ""
-	var _refusal := ""
-	var _done := false
-
-	# Kicks off the request. Called by chat_completion_stream() right after the
-	# stream is added to the tree.
-	func _start(
-		sse: C3SSERequest,
-		url: String,
-		headers: PackedStringArray,
-		body: String,
-		client: C3OpenAIClient
-	) -> void:
-		_client = client
-		_sse = sse
-		add_child(_sse)
-		_sse.event_received.connect(_on_event_received)
-		_sse.finished.connect(_on_sse_finished)
-		_sse.response_error.connect(_on_response_error)
-		_sse.request_failed.connect(_on_sse_request_failed)
-		var err := _sse.request(url, headers, HTTPClient.METHOD_POST, body)
-		if err != OK:
-			# Defer so the caller can connect to `finished` before it fires —
-			# _start() runs synchronously inside chat_completion_stream().
-			_resolve.call_deferred(
-				false,
-				ApiError.transport(
-					"Failed to start stream request (error %d)." % err
-				),
-				true
-			)
-
-	## Aborts the in-flight request and resolves [signal finished] with
-	## [member ChatCompletionResponse.ok] set to [code]false[/code].
-	func cancel() -> void:
-		_resolve(false, ApiError.cancelled("Stream cancelled."), false)
-
-	func _on_response_error(code: int, body: String) -> void:
-		_resolve(
-			false, ApiError.from_response(code, body.to_utf8_buffer()), true
-		)
-
-	func _on_event_received(data: String, _event_type: String) -> void:
-		if _done or data == "[DONE]":
-			return
-		var parser := JSON.new()
-		if parser.parse(data) != OK:
-			return
-		var json: Variant = parser.get_data()
-		if not json is Dictionary:
-			return
-		var json_dict: Dictionary = json
-		var model: Variant = json_dict.get("model")
-		if model is String and not (model as String).is_empty():
-			_res.model = model
-		var raw_usage: Variant = json_dict.get("usage")
-		if raw_usage is Dictionary:
-			_res.usage = {
-				"prompt_tokens": int(raw_usage.get("prompt_tokens", 0)),
-				"completion_tokens": int(raw_usage.get("completion_tokens", 0)),
-				"total_tokens": int(raw_usage.get("total_tokens", 0)),
-			}
-		var choices: Variant = json_dict.get("choices")
-		if not choices is Array or (choices as Array).is_empty():
-			return
-		var choice: Dictionary = (choices as Array)[0]
-		var finish_reason: Variant = choice.get("finish_reason")
-		if finish_reason is String:
-			_res.finish_reason = finish_reason
-		var delta_obj: Variant = choice.get("delta")
-		if not delta_obj is Dictionary:
-			return
-		var delta_dict: Dictionary = delta_obj
-		var piece: Variant = delta_dict.get("content")
-		if piece is String and not (piece as String).is_empty():
-			_content += piece
-			delta.emit(piece)
-		var refusal_piece: Variant = delta_dict.get("refusal")
-		if refusal_piece is String:
-			_refusal += refusal_piece
-
-	func _on_sse_finished() -> void:
-		_resolve(true, null, false)
-
-	func _on_sse_request_failed(reason: String) -> void:
-		_resolve(false, ApiError.transport(reason), true)
-
-	# Single exit point: fills in the result, tears down the SSE node, and emits
-	# finished once. `broadcast` re-emits the client's request_failed signal for
-	# genuine failures (not user cancellation), mirroring chat_completion().
-	func _resolve(ok: bool, error: ApiError, broadcast: bool) -> void:
-		if _done:
-			return
-		_done = true
-		_res.ok = ok
-		_res.error = error
-		if ok:
-			_res.content = _content
-			_res.refusal = _refusal
-		if is_instance_valid(_sse):
-			_sse.queue_free()
-			_sse = null
-		if broadcast and is_instance_valid(_client):
-			_client.request_failed.emit(error)
-		finished.emit(_res)
-		queue_free()
-
-
-## The response returned by [method get_models].
-class ModelsResponse:
-	## [code]true[/code] if the request succeeded.
-	var ok: bool = true
-	## Populated with error details when [member ok] is [code]false[/code].
-	var error: ApiError = null
-	var ids: PackedStringArray = PackedStringArray()
+var api_key := "no-key"
 
 
 ## Returns the list of model IDs available on the server.
@@ -418,35 +133,6 @@ func chat_completion_stream(
 	return stream
 
 
-# Creates the [C3SSERequest] used by [method chat_completion_stream].
-# Overridable in tests to substitute a fake transport.
-func _make_sse_request() -> C3SSERequest:
-	return C3SSERequest.new()
-
-
-# Assembles the JSON request body shared by chat_completion() and
-# chat_completion_stream(). Warns when no model is set.
-func _build_chat_body(messages: Array, opts: ChatOptions) -> Dictionary:
-	if opts.model.is_empty():
-		push_warning(
-			(
-				"C3OpenAIClient: opts.model is empty — using server default. "
-				+ "Set opts.model explicitly when targeting OpenAI."
-			)
-		)
-	var body: Dictionary = {
-		"model": opts.model,
-		"messages": messages,
-	}
-	if not is_nan(opts.temperature):
-		body["temperature"] = opts.temperature
-	if opts.max_tokens != -1:
-		body["max_tokens"] = opts.max_tokens
-	if not opts.stop.is_empty():
-		body["stop"] = opts.stop
-	return body
-
-
 ## Helper function for constructing a user message
 ## dictionary for the OpenAI chat API. [br]
 ## Returns:[br]
@@ -560,7 +246,7 @@ func create_transcription(
 		res.ok = false
 		res.error = ApiError.client_error("Unsupported AudioStream type.")
 		return res
-	var form_fields: Dictionary = {"model": opts.model}
+	var form_fields := {"model": opts.model}
 	if not opts.language.is_empty():
 		form_fields["language"] = opts.language
 	var response := await _http_post_multipart(
@@ -594,6 +280,35 @@ func create_transcription(
 	return res
 
 
+# Creates the C3SSERequest used by chat_completion_stream().
+# Overridable in tests to substitute a fake transport.
+func _make_sse_request() -> C3SSERequest:
+	return C3SSERequest.new()
+
+
+# Assembles the JSON request body shared by chat_completion() and
+# chat_completion_stream(). Warns when no model is set.
+func _build_chat_body(messages: Array, opts: ChatOptions) -> Dictionary:
+	if opts.model.is_empty():
+		push_warning(
+			(
+				"C3OpenAIClient: opts.model is empty — using server default. "
+				+ "Set opts.model explicitly when targeting OpenAI."
+			)
+		)
+	var body := {
+		"model": opts.model,
+		"messages": messages,
+	}
+	if not is_nan(opts.temperature):
+		body["temperature"] = opts.temperature
+	if opts.max_tokens != -1:
+		body["max_tokens"] = opts.max_tokens
+	if not opts.stop.is_empty():
+		body["stop"] = opts.stop
+	return body
+
+
 func _audio_stream_wav_to_bytes(wav: AudioStreamWAV) -> PackedByteArray:
 	var pcm := wav.data
 	var num_channels := 2 if wav.stereo else 1
@@ -624,7 +339,7 @@ func _audio_stream_wav_to_bytes(wav: AudioStreamWAV) -> PackedByteArray:
 	return header + pcm
 
 
-## Internal HTTP POST method. Can be overridden in tests.
+# Internal HTTP POST method. Can be overridden in tests.
 func _http_post(
 	url: String, body: Dictionary, headers: PackedStringArray
 ) -> Dictionary:
@@ -633,7 +348,7 @@ func _http_post(
 	)
 
 
-## Internal multipart/form-data POST. Can be overridden in tests.
+# Internal multipart/form-data POST. Can be overridden in tests.
 func _http_post_multipart(
 	url: String,
 	form_fields: Dictionary,
@@ -685,7 +400,7 @@ func _http_post_multipart(
 	)
 
 
-## Internal HTTP GET method. Can be overridden in tests.
+# Internal HTTP GET method. Can be overridden in tests.
 func _http_get(url: String, headers: PackedStringArray) -> Dictionary:
 	return await _http_request(HTTPClient.METHOD_GET, url, headers)
 
@@ -749,3 +464,287 @@ func _headers() -> PackedStringArray:
 	if not api_key.is_empty():
 		headers.append("Authorization: Bearer " + api_key)
 	return headers
+
+
+## Structured error placed on the [code]error[/code] field of every response
+## object when [code]ok[/code] is [code]false[/code], and carried by
+## [signal request_failed].
+class ApiError:
+	## Broad category of failure:[br]
+	## [code]&"transport"[/code] — no usable HTTP response (DNS, connection, TLS,
+	## or the request could not be started).[br]
+	## [code]&"http"[/code] — a non-2xx status with no parseable API error body.[br]
+	## [code]&"api"[/code] — the server returned a structured error body.[br]
+	## [code]&"parse"[/code] — a 2xx body that could not be understood.[br]
+	## [code]&"client"[/code] — the request was rejected before being sent (e.g.
+	## an invalid argument).[br]
+	## [code]&"cancelled"[/code] — the caller aborted the request.
+	var kind := &""
+	## Human-readable description. Never empty.
+	var message := ""
+	## HTTP status code, or [code]0[/code] when not applicable.
+	var status := 0
+	## Machine-readable API error code (e.g. [code]"invalid_api_key"[/code]), or
+	## [code]""[/code] if absent.
+	var code := ""
+	## API error type (e.g. [code]"invalid_request_error"[/code]), or [code]""[/code].
+	var type := ""
+	## Raw response body, for debugging. May be [code]""[/code].
+	var raw := ""
+
+	## Builds an error for a transport-level failure with no usable HTTP response.
+	static func transport(p_message: String) -> ApiError:
+		var e := ApiError.new()
+		e.kind = &"transport"
+		e.message = p_message
+		return e
+
+	## Builds an error for a 2xx response whose body could not be understood.
+	static func parse_failure(
+		p_message: String, p_raw: String = ""
+	) -> ApiError:
+		var e := ApiError.new()
+		e.kind = &"parse"
+		e.message = p_message
+		e.raw = p_raw
+		return e
+
+	## Builds an error for a caller-initiated cancellation.
+	static func cancelled(p_message: String) -> ApiError:
+		var e := ApiError.new()
+		e.kind = &"cancelled"
+		e.message = p_message
+		return e
+
+	## Builds an error for a request rejected before being sent (bad argument).
+	static func client_error(p_message: String) -> ApiError:
+		var e := ApiError.new()
+		e.kind = &"client"
+		e.message = p_message
+		return e
+
+	## Builds an error from a non-2xx response, pulling the server's own
+	## [code]{"error": {...}}[/code] body when present. Falls back to a generic
+	## HTTP-status message otherwise.
+	static func from_response(p_status: int, body: PackedByteArray) -> ApiError:
+		var e := ApiError.new()
+		e.kind = &"http"
+		e.status = p_status
+		e.raw = body.get_string_from_utf8()
+		e.message = "Request failed with status %d." % p_status
+		var parser := JSON.new()
+		if parser.parse(e.raw) == OK and parser.get_data() is Dictionary:
+			var api_err: Variant = (parser.get_data() as Dictionary).get("error")
+			if api_err is Dictionary:
+				var d: Dictionary = api_err
+				e.kind = &"api"
+				if d.get("message") is String:
+					e.message = d["message"]
+				if d.get("code") is String:
+					e.code = d["code"]
+				if d.get("type") is String:
+					e.type = d["type"]
+		return e
+
+	func _to_string() -> String:
+		var parts := PackedStringArray(["[%s]" % kind])
+		if status != 0:
+			parts.append("status=%d" % status)
+		if not code.is_empty():
+			parts.append("code=%s" % code)
+		parts.append(message)
+		return " ".join(parts)
+
+
+## Optional parameters for a chat completion request.
+class ChatOptions:
+	var model := ""
+	## Leave as [constant @GDScript.NAN] to omit temperature from the request entirely.
+	var temperature := NAN
+	## Set to -1 to omit max_tokens from the request entirely.
+	var max_tokens := -1
+	## One or more sequences where generation stops. Leave empty to omit from the request.
+	var stop := PackedStringArray()
+
+
+## The response returned by [method chat_completion].
+class ChatCompletionResponse:
+	## [code]true[/code] if the request succeeded.
+	var ok := true
+	## Populated with error details when [member ok] is [code]false[/code].
+	var error: ApiError = null
+	var content := ""
+	var refusal := ""
+	var finish_reason := ""
+	var model := ""
+	var usage := {}
+
+
+## A handle to an in-progress streaming chat completion, returned by
+## [method chat_completion_stream]. Emits [signal delta] as text arrives and
+## [signal finished] exactly once when the stream ends.
+class ChatStream extends Node:
+
+	## Emitted for each incremental piece of generated text as it arrives.
+	signal delta(text: String)
+	## Emitted exactly once when the stream ends — on success, on error, or
+	## after [method cancel]. Carries the same [ChatCompletionResponse] that
+	## [method chat_completion] returns.
+	signal finished(result: ChatCompletionResponse)
+
+	var _sse: C3SSERequest
+	var _client: C3OpenAIClient
+	var _res := ChatCompletionResponse.new()
+	var _content := ""
+	var _refusal := ""
+	var _done := false
+
+	## Aborts the in-flight request and resolves [signal finished] with
+	## [member ChatCompletionResponse.ok] set to [code]false[/code].
+	func cancel() -> void:
+		_resolve(false, ApiError.cancelled("Stream cancelled."), false)
+
+	# Kicks off the request. Called by chat_completion_stream() right after the
+	# stream is added to the tree.
+	func _start(
+		sse: C3SSERequest,
+		url: String,
+		headers: PackedStringArray,
+		body: String,
+		client: C3OpenAIClient
+	) -> void:
+		_client = client
+		_sse = sse
+		add_child(_sse)
+		_sse.event_received.connect(_on_event_received)
+		_sse.finished.connect(_on_sse_finished)
+		_sse.response_error.connect(_on_response_error)
+		_sse.request_failed.connect(_on_sse_request_failed)
+		var err := _sse.request(url, headers, HTTPClient.METHOD_POST, body)
+		if err != OK:
+			# Defer so the caller can connect to `finished` before it fires —
+			# _start() runs synchronously inside chat_completion_stream().
+			_resolve.call_deferred(
+				false,
+				ApiError.transport(
+					"Failed to start stream request (error %d)." % err
+				),
+				true
+			)
+
+	func _on_response_error(code: int, body: String) -> void:
+		_resolve(
+			false, ApiError.from_response(code, body.to_utf8_buffer()), true
+		)
+
+	func _on_event_received(data: String, _event_type: String) -> void:
+		if _done or data == "[DONE]":
+			return
+		var parser := JSON.new()
+		if parser.parse(data) != OK:
+			return
+		var json: Variant = parser.get_data()
+		if not json is Dictionary:
+			return
+		var json_dict: Dictionary = json
+		var model: Variant = json_dict.get("model")
+		if model is String and not (model as String).is_empty():
+			_res.model = model
+		var raw_usage: Variant = json_dict.get("usage")
+		if raw_usage is Dictionary:
+			_res.usage = {
+				"prompt_tokens": int(raw_usage.get("prompt_tokens", 0)),
+				"completion_tokens": int(raw_usage.get("completion_tokens", 0)),
+				"total_tokens": int(raw_usage.get("total_tokens", 0)),
+			}
+		var choices: Variant = json_dict.get("choices")
+		if not choices is Array or (choices as Array).is_empty():
+			return
+		var choice: Dictionary = (choices as Array)[0]
+		var finish_reason: Variant = choice.get("finish_reason")
+		if finish_reason is String:
+			_res.finish_reason = finish_reason
+		var delta_obj: Variant = choice.get("delta")
+		if not delta_obj is Dictionary:
+			return
+		var delta_dict: Dictionary = delta_obj
+		var piece: Variant = delta_dict.get("content")
+		if piece is String and not (piece as String).is_empty():
+			_content += piece
+			delta.emit(piece)
+		var refusal_piece: Variant = delta_dict.get("refusal")
+		if refusal_piece is String:
+			_refusal += refusal_piece
+
+	func _on_sse_finished() -> void:
+		_resolve(true, null, false)
+
+	func _on_sse_request_failed(reason: String) -> void:
+		_resolve(false, ApiError.transport(reason), true)
+
+	# Single exit point: fills in the result, tears down the SSE node, and emits
+	# finished once. `broadcast` re-emits the client's request_failed signal for
+	# genuine failures (not user cancellation), mirroring chat_completion().
+	func _resolve(ok: bool, error: ApiError, broadcast: bool) -> void:
+		if _done:
+			return
+		_done = true
+		_res.ok = ok
+		_res.error = error
+		if ok:
+			_res.content = _content
+			_res.refusal = _refusal
+		if is_instance_valid(_sse):
+			_sse.queue_free()
+			_sse = null
+		if broadcast and is_instance_valid(_client):
+			_client.request_failed.emit(error)
+		finished.emit(_res)
+		queue_free()
+
+
+## Optional parameters for a text-to-speech request.
+class SpeechOptions:
+	var model := ""
+	var voice := ""
+	## Sample rate of the [code]"pcm"[/code] response. Must match the server's
+	## output. OpenAI and speaches both default to 24000 Hz.
+	var pcm_sample_rate := 24000
+	## Whether the [code]"pcm"[/code] response is stereo. Most TTS servers
+	## output mono. Set to [code]true[/code] if the server produces stereo PCM.
+	var pcm_stereo := false
+
+
+## The response returned by [method create_speech].
+class SpeechResponse:
+	## [code]true[/code] if the request succeeded.
+	var ok := true
+	## Populated with error details when [member ok] is [code]false[/code].
+	var error: ApiError = null
+	## The resulting audio stream. Only valid when [member ok] is [code]true[/code].
+	var stream: AudioStream
+
+
+## Optional parameters for a transcription request.
+class TranscriptionOptions:
+	var model := ""
+	## BCP-47 language code (e.g. [code]"en"[/code]). Leave empty to auto-detect.
+	var language := ""
+
+
+## The response returned by [method create_transcription].
+class TranscriptionResponse:
+	## [code]true[/code] if the request succeeded.
+	var ok := true
+	## Populated with error details when [member ok] is [code]false[/code].
+	var error: ApiError = null
+	var text := ""
+
+
+## The response returned by [method get_models].
+class ModelsResponse:
+	## [code]true[/code] if the request succeeded.
+	var ok := true
+	## Populated with error details when [member ok] is [code]false[/code].
+	var error: ApiError = null
+	var ids := PackedStringArray()

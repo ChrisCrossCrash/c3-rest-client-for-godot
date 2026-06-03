@@ -1,6 +1,7 @@
 extends GutTest
 
 
+## Tests for [C3OpenAIClient.SpeechOptions] defaults.
 class TestSpeechOptions extends GutTest:
 	func test_default_model() -> void:
 		assert_eq(C3OpenAIClient.SpeechOptions.new().model, "")
@@ -15,6 +16,7 @@ class TestSpeechOptions extends GutTest:
 		assert_false(C3OpenAIClient.SpeechOptions.new().pcm_stereo)
 
 
+## Tests for [method C3OpenAIClient.create_speech].
 class TestCreateSpeech extends GutTest:
 	var client: C3TestDoubles.TestableClient
 
@@ -22,6 +24,7 @@ class TestCreateSpeech extends GutTest:
 		client = C3TestDoubles.TestableClient.new()
 		add_child_autofree(client)
 
+	## A preset success response carrying minimal raw PCM bytes.
 	func ok_pcm() -> Dictionary:
 		return {"ok": true, "body": PackedByteArray([0x00, 0x01, 0x02, 0x03])}
 

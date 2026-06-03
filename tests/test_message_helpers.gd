@@ -1,6 +1,7 @@
 extends GutTest
 
 
+## Tests for the static message-builder helpers on [C3OpenAIClient].
 class TestMessageHelpers extends GutTest:
 	func test_make_user_msg() -> void:
 		assert_eq(
@@ -59,6 +60,7 @@ class TestMessageHelpers extends GutTest:
 		)
 
 
+## Tests for [C3OpenAIClient.ChatOptions] defaults.
 class TestChatOptions extends GutTest:
 	func test_default_model() -> void:
 		assert_eq(C3OpenAIClient.ChatOptions.new().model, "")

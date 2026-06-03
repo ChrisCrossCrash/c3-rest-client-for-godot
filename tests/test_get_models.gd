@@ -1,6 +1,7 @@
 extends GutTest
 
 
+## Tests for [method C3OpenAIClient.get_models].
 class TestGetModels extends GutTest:
 	var client: C3TestDoubles.TestableClient
 

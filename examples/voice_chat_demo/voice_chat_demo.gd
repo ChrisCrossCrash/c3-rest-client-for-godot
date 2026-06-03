@@ -1,16 +1,15 @@
 extends Control
 
+var _record_effect: AudioEffectRecord
+var _recording: AudioStreamWAV
+var _messages := []
+
 @onready var bg: ColorRect = $Background
 @onready var mic_player: AudioStreamPlayer = $MicPlayer
 @onready var playback_player: AudioStreamPlayer = $PlaybackPlayer
-
 # Different clients for different servers with different capabilities.
 @onready var client_llm: C3OpenAIClient = $C3OpenAIClientLLM
 @onready var client_voice: C3OpenAIClient = $C3OpenAIClientVoice
-
-var _record_effect: AudioEffectRecord
-var _recording: AudioStreamWAV
-var _messages: Array = []
 
 
 func _ready() -> void:

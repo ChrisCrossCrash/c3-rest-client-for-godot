@@ -1,6 +1,7 @@
 extends GutTest
 
 
+## Tests for [method C3OpenAIClient.chat_completion_stream].
 class TestChatCompletionStream extends GutTest:
 	var client: C3TestDoubles.TestableClient
 
@@ -45,7 +46,7 @@ class TestChatCompletionStream extends GutTest:
 	## appends the result to. Capturing up front works because the fake drives
 	## the stream synchronously, so `finished` fires during the driving emits.
 	func capture_finished(stream: C3OpenAIClient.ChatStream) -> Array:
-		var captured: Array = []
+		var captured := []
 		stream.finished.connect(func(r: Variant) -> void: captured.append(r))
 		return captured
 
@@ -64,7 +65,7 @@ class TestChatCompletionStream extends GutTest:
 
 	func test_emits_delta_per_content_chunk() -> void:
 		var stream := start_stream()
-		var deltas: Array = []
+		var deltas := []
 		stream.delta.connect(func(t: String) -> void: deltas.append(t))
 		drive_success(client.last_sse)
 		assert_eq(deltas, ["Hel", "lo"])
@@ -121,7 +122,7 @@ class TestChatCompletionStream extends GutTest:
 
 	func test_done_sentinel_does_not_emit_delta() -> void:
 		var stream := start_stream()
-		var deltas: Array = []
+		var deltas := []
 		stream.delta.connect(func(t: String) -> void: deltas.append(t))
 		client.last_sse.stream_started.emit(200, PackedStringArray())
 		client.last_sse.event_received.emit("[DONE]", "message")
@@ -130,7 +131,7 @@ class TestChatCompletionStream extends GutTest:
 
 	func test_invalid_json_chunk_is_ignored() -> void:
 		var stream := start_stream()
-		var deltas: Array = []
+		var deltas := []
 		stream.delta.connect(func(t: String) -> void: deltas.append(t))
 		var captured := capture_finished(stream)
 		client.last_sse.stream_started.emit(200, PackedStringArray())
@@ -141,7 +142,7 @@ class TestChatCompletionStream extends GutTest:
 
 	func test_empty_choices_chunk_is_ignored() -> void:
 		var stream := start_stream()
-		var deltas: Array = []
+		var deltas := []
 		stream.delta.connect(func(t: String) -> void: deltas.append(t))
 		var captured := capture_finished(stream)
 		client.last_sse.stream_started.emit(200, PackedStringArray())

@@ -45,6 +45,7 @@ speaches
 stylebox
 subdirs
 tscn
+tweens
 Userinfo
 VOLUMEDOWN
 VOLUMEMUTE

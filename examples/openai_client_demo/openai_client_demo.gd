@@ -1,14 +1,13 @@
 extends Control
 
-@onready var client: C3OpenAIClient = $C3OpenAIClient
-
-@onready var audio_stream_player: AudioStreamPlayer = $AudioStreamPlayer
-@onready var label: Label = $ScrollContainer/Label
-
 const CHAT_MODEL := "gpt-5.4-mini"
 const TTS_MODEL := "tts-1"
 const TTS_VOICE := "alloy"
 const STT_MODEL := "whisper-1"
+
+@onready var client: C3OpenAIClient = $C3OpenAIClient
+@onready var audio_stream_player: AudioStreamPlayer = $AudioStreamPlayer
+@onready var label: Label = $ScrollContainer/Label
 
 
 func _ready() -> void:
@@ -21,7 +20,7 @@ func _ready() -> void:
 	# --- Chat: non-streaming ---
 	_render_text("Chat completion (non-streaming):")
 	var user_msg_str_llm := "What is an LLM?"
-	var messages = [
+	var messages := [
 		C3OpenAIClient.make_system_msg(
 			"You are an assistant that gives one-sentence responses."
 		),
@@ -42,7 +41,7 @@ func _ready() -> void:
 
 	# --- Streaming chat ---
 	_render_text("Chat completion (streaming):")
-	var streaming_messages = [C3OpenAIClient.make_user_msg("Count to ten.")]
+	var streaming_messages := [C3OpenAIClient.make_user_msg("Count to ten.")]
 	var streaming_opts := C3OpenAIClient.ChatOptions.new()
 	streaming_opts.model = CHAT_MODEL
 
@@ -71,7 +70,7 @@ func _ready() -> void:
 		. get_image()
 	)
 	var b64 := Marshalls.raw_to_base64(img.save_jpg_to_buffer())
-	var vision_messages = [
+	var vision_messages := [
 		C3OpenAIClient.make_user_msg_with_parts([
 			C3OpenAIClient.make_part_text(user_msg_str_vision),
 			C3OpenAIClient.make_part_image_url("data:image/jpeg;base64," + b64),
