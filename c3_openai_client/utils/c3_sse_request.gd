@@ -1,6 +1,7 @@
 # C3 Godot Utils
 # 4.2.0
 # File revision: 2026-06-02
+# Modified from source on 2026-06-03, will upstream changes.
 
 class_name C3SSERequest
 extends Node
@@ -124,23 +125,25 @@ func _parse_url(url: String) -> bool:
 
 
 func _process(_delta: float) -> void:
+	const CONNECT_ERRORS := [
+		HTTPClient.STATUS_CANT_CONNECT,
+		HTTPClient.STATUS_CANT_RESOLVE,
+		HTTPClient.STATUS_CONNECTION_ERROR,
+		HTTPClient.STATUS_TLS_HANDSHAKE_ERROR,
+	]
 	_client.poll()
-	var status := _client.get_status()
+	var client_status := _client.get_status()
 
 	match _state:
 		_State.CONNECTING:
-			match status:
-				HTTPClient.STATUS_CONNECTED:
-					_send_request()
-				HTTPClient.STATUS_CANT_CONNECT, \
-				HTTPClient.STATUS_CANT_RESOLVE, \
-				HTTPClient.STATUS_CONNECTION_ERROR, \
-				HTTPClient.STATUS_TLS_HANDSHAKE_ERROR:
-					_fail("Could not connect to %s:%d." % [_host, _port])
-				# STATUS_RESOLVING / STATUS_CONNECTING: still working; wait a frame.
+			if client_status == HTTPClient.STATUS_CONNECTED:
+				_send_request()
+			elif client_status in CONNECT_ERRORS:
+				_fail("Could not connect to %s:%d." % [_host, _port])
+			# STATUS_RESOLVING / STATUS_CONNECTING: still working; wait a frame.
 
 		_State.REQUESTING:
-			match status:
+			match client_status:
 				HTTPClient.STATUS_BODY:
 					_response_code = _client.get_response_code()
 					stream_started.emit(
