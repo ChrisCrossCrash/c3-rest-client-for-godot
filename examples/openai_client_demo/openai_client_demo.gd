@@ -31,7 +31,9 @@ func _ready() -> void:
 	opts.model = CHAT_MODEL
 	var completion_res := await client.chat_completion(messages, opts)
 	if not completion_res.ok:
-		_quit_with_error("Error generating chat completion: " + str(completion_res.error))
+		_quit_with_error(
+			"Error generating chat completion: " + str(completion_res.error)
+		)
 		return
 
 	_render_text("User: " + user_msg_str_llm)
@@ -44,7 +46,9 @@ func _ready() -> void:
 	var streaming_opts := C3OpenAIClient.ChatOptions.new()
 	streaming_opts.model = CHAT_MODEL
 
-	var stream := client.chat_completion_stream(streaming_messages, streaming_opts)
+	var stream := client.chat_completion_stream(
+		streaming_messages, streaming_opts
+	)
 
 	# Incremental updates as tokens arrive:
 	stream.delta.connect(func(text: String) -> void: _render_text(text, ""))
@@ -52,7 +56,9 @@ func _ready() -> void:
 	# Final result — same struct chat_completion() returns:
 	var result: C3OpenAIClient.ChatCompletionResponse = await stream.finished
 	if not result.ok:
-		_quit_with_error("Error streaming chat completion: " + str(result.error))
+		_quit_with_error(
+			"Error streaming chat completion: " + str(result.error)
+		)
 		return
 
 	_render_text("\n(full content: %d chars)\n---" % result.content.length())
@@ -71,7 +77,9 @@ func _ready() -> void:
 			C3OpenAIClient.make_part_image_url("data:image/jpeg;base64," + b64),
 		])
 	]
-	var vision_completion_res := await client.chat_completion(vision_messages, opts)
+	var vision_completion_res := await client.chat_completion(
+		vision_messages, opts
+	)
 	if not vision_completion_res.ok:
 		_quit_with_error(
 			"Error generating image chat completion:"
@@ -87,7 +95,9 @@ func _ready() -> void:
 	var speech_opts := C3OpenAIClient.SpeechOptions.new()
 	speech_opts.model = TTS_MODEL
 	speech_opts.voice = TTS_VOICE
-	var speech_res := await client.create_speech(completion_res.content, speech_opts)
+	var speech_res := await client.create_speech(
+		completion_res.content, speech_opts
+	)
 	if not speech_res.ok:
 		push_error("Error generating speech: " + str(speech_res.error))
 		get_tree().quit()
@@ -100,9 +110,13 @@ func _ready() -> void:
 	var clip := load("res://examples/openai_client_demo/demo-speech.mp3")
 	var transcribe_opts := C3OpenAIClient.TranscriptionOptions.new()
 	transcribe_opts.model = STT_MODEL
-	var transcription_res := await client.create_transcription(clip, transcribe_opts)
+	var transcription_res := await client.create_transcription(
+		clip, transcribe_opts
+	)
 	if not transcription_res.ok:
-		_quit_with_error("Error generating transcription: " + str(transcription_res.error))
+		_quit_with_error(
+			"Error generating transcription: " + str(transcription_res.error)
+		)
 		return
 	_render_text("Transcription: " + transcription_res.text)
 

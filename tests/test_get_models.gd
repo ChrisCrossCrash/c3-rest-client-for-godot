@@ -73,7 +73,10 @@ class TestGetModels extends GutTest:
 		client.preset_response = {
 			"ok": true,
 			"body":
-			'{"data": [{"id": "model-a"}, {"no_id": true}, "junk"]}'.to_utf8_buffer()
+			(
+				'{"data": [{"id": "model-a"}, {"no_id": true}, "junk"]}'
+				. to_utf8_buffer()
+			)
 		}
 
 		var result := await client.get_models()

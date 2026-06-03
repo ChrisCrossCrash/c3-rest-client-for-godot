@@ -165,7 +165,9 @@ class TestCreateTranscription extends GutTest:
 		assert_signal_emitted(client, "request_failed")
 
 	func test_unsupported_audio_type_is_client_error() -> void:
-		var result := await client.create_transcription(AudioStreamGenerator.new())
+		var result := await client.create_transcription(
+			AudioStreamGenerator.new()
+		)
 		assert_false(result.ok)
 		assert_eq(result.error.kind, &"client")
 		assert_eq(client.request_log.size(), 0)

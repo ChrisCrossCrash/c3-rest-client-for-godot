@@ -3,6 +3,7 @@ class_name C3OpenAIClient
 extends Node
 ## General-purpose client for OpenAI-compatible HTTP APIs.
 
+
 ## Structured error placed on the [code]error[/code] field of every response
 ## object when [code]ok[/code] is [code]false[/code], and carried by
 ## [signal request_failed].
@@ -37,7 +38,9 @@ class ApiError:
 		return e
 
 	## Builds an error for a 2xx response whose body could not be understood.
-	static func parse_failure(p_message: String, p_raw: String = "") -> ApiError:
+	static func parse_failure(
+		p_message: String, p_raw: String = ""
+	) -> ApiError:
 		var e := ApiError.new()
 		e.kind = &"parse"
 		e.message = p_message
@@ -209,7 +212,9 @@ class ChatStream:
 			# _start() runs synchronously inside chat_completion_stream().
 			_resolve.call_deferred(
 				false,
-				ApiError.transport("Failed to start stream request (error %d)." % err),
+				ApiError.transport(
+					"Failed to start stream request (error %d)." % err
+				),
 				true
 			)
 
@@ -219,7 +224,9 @@ class ChatStream:
 		_resolve(false, ApiError.cancelled("Stream cancelled."), false)
 
 	func _on_response_error(code: int, body: String) -> void:
-		_resolve(false, ApiError.from_response(code, body.to_utf8_buffer()), true)
+		_resolve(
+			false, ApiError.from_response(code, body.to_utf8_buffer()), true
+		)
 
 	func _on_event_received(data: String, _event_type: String) -> void:
 		if _done or data == "[DONE]":
@@ -321,7 +328,7 @@ func get_models() -> ModelsResponse:
 	if not data is Array:
 		res.ok = false
 		res.error = ApiError.parse_failure(
-			"Models response JSON missing \"data\" array.", body_str
+			'Models response JSON missing "data" array.', body_str
 		)
 		request_failed.emit(res.error)
 		return res
@@ -691,9 +698,11 @@ func _http_request(
 	var err := req.request(url, headers, method, body)
 	if err != OK:
 		req.queue_free()
-		return {"ok": false, "error": ApiError.transport(
-			"Failed to start request (error %d)." % err
-		)}
+		return {
+			"ok": false,
+			"error":
+			ApiError.transport("Failed to start request (error %d)." % err)
+		}
 	var args: Array = await req.request_completed
 	req.queue_free()
 	return _process_http_result(args)
@@ -707,9 +716,11 @@ func _http_request_raw(
 	var err := req.request_raw(url, headers, method, body)
 	if err != OK:
 		req.queue_free()
-		return {"ok": false, "error": ApiError.transport(
-			"Failed to start request (error %d)." % err
-		)}
+		return {
+			"ok": false,
+			"error":
+			ApiError.transport("Failed to start request (error %d)." % err)
+		}
 	var args: Array = await req.request_completed
 	req.queue_free()
 	return _process_http_result(args)
@@ -723,9 +734,11 @@ func _process_http_result(args: Array) -> Dictionary:
 	var status: int = args[1]
 	var resp_body: PackedByteArray = args[3]
 	if result != HTTPRequest.RESULT_SUCCESS:
-		return {"ok": false, "error": ApiError.transport(
-			"HTTP transport failed (result %d)." % result
-		)}
+		return {
+			"ok": false,
+			"error":
+			ApiError.transport("HTTP transport failed (result %d)." % result)
+		}
 	if status < 200 or status >= 300:
 		return {"ok": false, "error": ApiError.from_response(status, resp_body)}
 	return {"ok": true, "body": resp_body}

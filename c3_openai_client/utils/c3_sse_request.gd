@@ -26,7 +26,7 @@ signal stream_started(response_code: int, headers: PackedStringArray)
 ## `event_type` is the `event:` field value, or `"message"` if absent.
 signal event_received(data: String, event_type: String)
 ## The stream closed cleanly (socket end or server hang-up).
-signal finished()
+signal finished
 ## The server responded with a non-2xx status. Carries the full (non-SSE)
 ## response body — typically a JSON error payload — once it has been read.
 ## Emitted instead of [signal finished]; [signal stream_started] still fires
@@ -113,9 +113,11 @@ func _parse_url(url: String) -> bool:
 
 	if _host == "localhost":
 		push_warning(
-			"C3SSERequest: \"localhost\" may resolve to ::1 (IPv6) on Windows, " +
-			"causing connection failures if the server listens only on IPv4. " +
-			"Use \"127.0.0.1\" instead."
+			(
+				'C3SSERequest: "localhost" may resolve to ::1 (IPv6) on '
+				+ "Windows, causing connection failures if the server listens "
+				+ 'only on IPv4. Use "127.0.0.1" instead.'
+			)
 		)
 
 	return not _host.is_empty()
@@ -147,7 +149,8 @@ func _process(_delta: float) -> void:
 					# A non-2xx body is a regular (non-SSE) payload — usually a
 					# JSON error. Collect it raw rather than parsing SSE events.
 					_state = (
-						_State.STREAMING if _is_ok(_response_code)
+						_State.STREAMING
+						if _is_ok(_response_code)
 						else _State.ERROR_BODY
 					)
 				HTTPClient.STATUS_CONNECTED:

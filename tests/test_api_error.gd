@@ -51,7 +51,9 @@ class TestApiError extends GutTest:
 		assert_eq(e.raw, body.get_string_from_utf8())
 
 	func test_from_response_missing_fields_default_to_empty() -> void:
-		var body := JSON.stringify({"error": {"message": "Oops."}}).to_utf8_buffer()
+		var body := (
+			JSON.stringify({"error": {"message": "Oops."}}).to_utf8_buffer()
+		)
 		var e := ApiError.from_response(400, body)
 		assert_eq(e.kind, &"api")
 		assert_eq(e.message, "Oops.")
@@ -59,13 +61,17 @@ class TestApiError extends GutTest:
 		assert_eq(e.type, "")
 
 	func test_from_response_non_json_body_falls_back_to_http() -> void:
-		var e := ApiError.from_response(500, "Internal Server Error".to_utf8_buffer())
+		var e := ApiError.from_response(
+			500, "Internal Server Error".to_utf8_buffer()
+		)
 		assert_eq(e.kind, &"http")
 		assert_eq(e.status, 500)
 		assert_eq(e.message, "Request failed with status 500.")
 
 	func test_from_response_json_without_error_key_falls_back_to_http() -> void:
-		var e := ApiError.from_response(404, '{"detail": "nope"}'.to_utf8_buffer())
+		var e := ApiError.from_response(
+			404, '{"detail": "nope"}'.to_utf8_buffer()
+		)
 		assert_eq(e.kind, &"http")
 		assert_eq(e.message, "Request failed with status 404.")
 

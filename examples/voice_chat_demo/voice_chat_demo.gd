@@ -30,7 +30,6 @@ func _process(_delta: float) -> void:
 		_messages.clear()
 
 
-
 func start_recording() -> void:
 	mic_player.play()
 	_record_effect.set_recording_active(true)
@@ -57,9 +56,9 @@ func stop_recording() -> void:
 
 	# LLM processing
 	if _messages.is_empty():
-		_messages.append(C3OpenAIClient.make_system_msg(
-			"You always answer in rhymes."
-		))
+		_messages.append(
+			C3OpenAIClient.make_system_msg("You always answer in rhymes.")
+		)
 	_messages.append(C3OpenAIClient.make_user_msg(transcription.text))
 	var completion := await client_llm.chat_completion(_messages)
 	if not completion.ok:
@@ -72,7 +71,9 @@ func stop_recording() -> void:
 	var speech_opts := C3OpenAIClient.SpeechOptions.new()
 	speech_opts.model = "speaches-ai/Kokoro-82M-v1.0-ONNX-fp16"
 	speech_opts.voice = "af_bella"
-	var speech := await client_voice.create_speech(completion.content, speech_opts)
+	var speech := await client_voice.create_speech(
+		completion.content, speech_opts
+	)
 	if not speech.ok:
 		push_error(speech.error)
 		return
