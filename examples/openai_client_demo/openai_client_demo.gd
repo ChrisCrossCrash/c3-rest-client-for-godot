@@ -129,8 +129,3 @@ func _quit_with_error(err: String) -> void:
 func _render_text(txt: String, end: String = "\n") -> void:
 	print(txt)
 	label.text += txt + end
-
-
-func _quit() -> void:
-	await get_tree().process_frame
-	get_tree().quit()
