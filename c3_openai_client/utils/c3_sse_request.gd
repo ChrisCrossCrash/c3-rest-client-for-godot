@@ -1,5 +1,5 @@
 # C3 Godot Utils
-# v4.2.1
+# v4.2.2
 # File revision: 2026-06-05
 
 class_name C3SSERequest
@@ -39,7 +39,10 @@ enum _State { IDLE, CONNECTING, REQUESTING, STREAMING, ERROR_BODY }
 
 var _client := HTTPClient.new()
 var _state := _State.IDLE
-var _buffer := ""
+# Raw, undecoded bytes off the socket. Kept as bytes (not a String) so a
+# multi-byte UTF-8 character split across two reads is reassembled before
+# decoding — decoding per-chunk would mangle the straddling character.
+var _buffer := PackedByteArray()
 var _response_code := 0
 
 # Request parameters, captured at request() time and used once CONNECTED.
@@ -79,7 +82,7 @@ func request(
 	_headers = custom_headers
 	_method = method
 	_body = request_body
-	_buffer = ""
+	_buffer = PackedByteArray()
 
 	var tls := TLSOptions.client() if _use_ssl else null
 	var err := _client.connect_to_host(_host, _port, tls)
@@ -190,12 +193,14 @@ func _is_ok(code: int) -> bool:
 
 func _stream_step() -> void:
 	# Drain everything the OS has buffered this frame, not just one chunk, so a
-	# fast burst doesn't trickle out one event per frame.
+	# fast burst doesn't trickle out one event per frame. Chunks land on
+	# arbitrary byte boundaries, so accumulate raw bytes and defer decoding to
+	# _drain_buffer(), which slices on the ASCII event delimiter.
 	while true:
 		var chunk := _client.read_response_body_chunk()
 		if chunk.size() == 0:
 			break
-		_buffer += chunk.get_string_from_utf8()
+		_buffer.append_array(chunk)
 
 	_drain_buffer()
 
@@ -211,27 +216,44 @@ func _error_body_step() -> void:
 		var chunk := _client.read_response_body_chunk()
 		if chunk.size() == 0:
 			break
-		_buffer += chunk.get_string_from_utf8()
+		_buffer.append_array(chunk)
 
 	if _client.get_status() != HTTPClient.STATUS_BODY:
 		_finish_error_body()
 
 
 func _finish_error_body() -> void:
-	var body := _buffer
+	# The whole body is in hand now, so decode it in one pass — no chunk
+	# boundary can split a character once every byte has arrived.
+	var body := _buffer.get_string_from_utf8()
 	_reset()
 	response_error.emit(_response_code, body)
 
 
-# Carve complete `\n\n`-delimited events out of the buffer and dispatch each.
-# Reassigning a member var here (unlike a by-value local) actually sticks.
+# Carve complete `\n\n`-delimited events out of the byte buffer and dispatch
+# each. The delimiter is pure ASCII (0x0A 0x0A), so it's located at the byte
+# level without decoding; only a fully sliced-out event is decoded, and that
+# event never splits a UTF-8 character because its boundary is an ASCII newline.
+# Trailing partial bytes (an incomplete event, possibly mid-character) stay in
+# the buffer for the next read. Reassigning a member var here (unlike a by-value
+# local) actually sticks.
 func _drain_buffer() -> void:
-	var sep := _buffer.find("\n\n")
+	var sep := _find_event_boundary()
 	while sep != -1:
-		var raw_event := _buffer.substr(0, sep)
-		_buffer = _buffer.substr(sep + 2)
+		var raw_event := _buffer.slice(0, sep).get_string_from_utf8()
+		_buffer = _buffer.slice(sep + 2)
 		_emit_event(raw_event)
-		sep = _buffer.find("\n\n")
+		sep = _find_event_boundary()
+
+
+# Byte offset of the first `\n\n` (0x0A 0x0A) in the buffer, or -1 if absent.
+func _find_event_boundary() -> int:
+	var nl := _buffer.find(0x0A)
+	while nl != -1 and nl + 1 < _buffer.size():
+		if _buffer[nl + 1] == 0x0A:
+			return nl
+		nl = _buffer.find(0x0A, nl + 1)
+	return -1
 
 
 func _emit_event(raw_event: String) -> void:
@@ -261,8 +283,10 @@ func _emit_event(raw_event: String) -> void:
 
 func _finish() -> void:
 	# A server may end the last event without a trailing blank line; flush it.
-	if not _buffer.strip_edges().is_empty():
-		_emit_event(_buffer)
+	# The stream is over, so every byte is here — decode the tail in one pass.
+	var tail := _buffer.get_string_from_utf8()
+	if not tail.strip_edges().is_empty():
+		_emit_event(tail)
 	_reset()
 	finished.emit()
 
@@ -274,6 +298,6 @@ func _fail(reason: String) -> void:
 
 func _reset() -> void:
 	_client.close()
-	_buffer = ""
+	_buffer = PackedByteArray()
 	_state = _State.IDLE
 	set_process(false)
