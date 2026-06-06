@@ -253,7 +253,23 @@ func create_transcription(
 		filename = "audio.mp3"
 		file_content_type = "audio/mpeg"
 	elif audio is AudioStreamWAV:
-		audio_bytes = _audio_stream_wav_to_bytes(audio as AudioStreamWAV)
+		var wav := audio as AudioStreamWAV
+		# Only uncompressed PCM can be wrapped in the PCM WAV header we write.
+		# ADPCM and QOA store compressed samples, so their bytes would not match
+		# the header and the server would receive corrupt audio.
+		if (
+			wav.format != AudioStreamWAV.FORMAT_8_BITS
+			and wav.format != AudioStreamWAV.FORMAT_16_BITS
+		):
+			push_error(
+				"C3OpenAIClient: Unsupported AudioStreamWAV format. Only 8-bit and 16-bit PCM are supported."
+			)
+			res.ok = false
+			res.error = ApiError.client_error(
+				"Unsupported AudioStreamWAV format."
+			)
+			return res
+		audio_bytes = _audio_stream_wav_to_bytes(wav)
 		filename = "audio.wav"
 		file_content_type = "audio/wav"
 	else:
@@ -329,8 +345,9 @@ func _build_chat_body(messages: Array, opts: ChatOptions) -> Dictionary:
 func _audio_stream_wav_to_bytes(wav: AudioStreamWAV) -> PackedByteArray:
 	var pcm := wav.data
 	var num_channels := 2 if wav.stereo else 1
-	# AudioStreamWAV.format: FORMAT_8_BIT = 0, FORMAT_16_BIT = 1, FORMAT_IMA_ADPCM = 2
-	var bits_per_sample := 8 if wav.format == 0 else 16
+	# create_transcription() guarantees 8- or 16-bit PCM, so anything that is
+	# not 8-bit is 16-bit.
+	var bits_per_sample := 8 if wav.format == AudioStreamWAV.FORMAT_8_BITS else 16
 	var bytes_per_sample := bits_per_sample >> 3
 	var byte_rate := wav.mix_rate * num_channels * bytes_per_sample
 	var block_align := num_channels * bytes_per_sample

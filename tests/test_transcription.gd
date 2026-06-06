@@ -204,3 +204,15 @@ class TestCreateTranscription extends GutTest:
 		assert_eq(result.error.kind, &"client")
 		assert_eq(client.request_log.size(), 0)
 		assert_push_error("Unsupported AudioStream type")
+
+	func test_non_pcm_wav_format_is_client_error() -> void:
+		# A compressed WAV (ADPCM/QOA) cannot be wrapped in a PCM header, so it
+		# is rejected before any request is made rather than sent as garbage.
+		var stream := AudioStreamWAV.new()
+		stream.format = AudioStreamWAV.FORMAT_IMA_ADPCM
+		stream.data = PackedByteArray([0x00, 0x01, 0x02, 0x03])
+		var result := await client.create_transcription(stream)
+		assert_false(result.ok)
+		assert_eq(result.error.kind, &"client")
+		assert_eq(client.request_log.size(), 0)
+		assert_push_error("Unsupported AudioStreamWAV format")
