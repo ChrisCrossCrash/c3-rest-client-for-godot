@@ -1,8 +1,8 @@
 extends Control
 
 const CHAT_MODEL := "gpt-5.4-mini"
-const TTS_MODEL := "tts-1"
-const TTS_VOICE := "alloy"
+const TTS_MODEL := "gpt-4o-mini-tts"
+const TTS_VOICE := "marin"
 const STT_MODEL := "whisper-1"
 
 @onready var client: C3OpenAIClient = $C3OpenAIClient
