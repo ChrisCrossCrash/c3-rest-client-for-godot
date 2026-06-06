@@ -1,6 +1,7 @@
 ADPCM
 alives
 autofree
+BINORMAL
 CAPSLOCK
 ceili
 centiseconds
@@ -25,6 +26,7 @@ issuperset
 Joypad
 Kokoro
 lerp
+lerpf
 lihop
 maxf
 MEDIANEXT
@@ -41,6 +43,7 @@ randf
 randfn
 respawn
 SCROLLLOCK
+smoothstep
 speaches
 stylebox
 subdirs
