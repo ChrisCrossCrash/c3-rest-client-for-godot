@@ -146,6 +146,36 @@ class TestCreateTranscription extends GutTest:
 		var bytes := client._audio_stream_wav_to_bytes(stream)
 		assert_eq(bytes.slice(44), stream.data)
 
+	## Creates a minimal in-memory 8-bit WAV stream for testing.
+	func make_wav_stream_8bit(data: PackedByteArray) -> AudioStreamWAV:
+		var stream := AudioStreamWAV.new()
+		stream.mix_rate = 8000
+		stream.stereo = false
+		stream.format = AudioStreamWAV.FORMAT_8_BITS
+		stream.data = data
+		return stream
+
+	func test_wav_8bit_samples_converted_to_unsigned() -> void:
+		# Godot stores 8-bit PCM signed; WAV requires unsigned (128 = silence).
+		# Each sample's sign bit is flipped: 0x00 -> 0x80, 0x7F -> 0xFF, etc.
+		var stream := make_wav_stream_8bit(
+			PackedByteArray([0x00, 0x7F, 0x80, 0xFF])
+		)
+		var bytes := client._audio_stream_wav_to_bytes(stream)
+		assert_eq(bytes.slice(44), PackedByteArray([0x80, 0xFF, 0x00, 0x7F]))
+
+	func test_wav_8bit_header_declares_8_bits() -> void:
+		var stream := make_wav_stream_8bit(PackedByteArray([0x00, 0x01]))
+		var bytes := client._audio_stream_wav_to_bytes(stream)
+		# bits_per_sample is the little-endian u16 at byte offset 34.
+		assert_eq(bytes.decode_u16(34), 8)
+
+	func test_wav_8bit_conversion_does_not_mutate_source() -> void:
+		# Copy-on-write must keep the caller's AudioStreamWAV.data intact.
+		var stream := make_wav_stream_8bit(PackedByteArray([0x00, 0x7F]))
+		client._audio_stream_wav_to_bytes(stream)
+		assert_eq(stream.data, PackedByteArray([0x00, 0x7F]))
+
 	func test_returns_failed_response_on_network_error() -> void:
 		client.preset_response = {
 			"ok": false,

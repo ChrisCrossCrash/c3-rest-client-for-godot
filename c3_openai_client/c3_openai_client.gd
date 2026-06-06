@@ -353,6 +353,16 @@ func _audio_stream_wav_to_bytes(wav: AudioStreamWAV) -> PackedByteArray:
 	var bytes_per_sample := bits_per_sample >> 3
 	var byte_rate := wav.mix_rate * num_channels * bytes_per_sample
 	var block_align := num_channels * bytes_per_sample
+
+	# Godot stores 8-bit PCM as signed (-128..127), but the WAV spec defines
+	# 8-bit PCM as unsigned (0..255, 128 = silence). Flip the sign bit of each
+	# sample so the file is spec-compliant. 16-bit PCM is signed in both
+	# formats, so it passes through unchanged. (Copy-on-write keeps wav.data
+	# untouched once we mutate pcm.)
+	if bits_per_sample == 8:
+		for i in pcm.size():
+			pcm[i] ^= 0x80
+
 	var data_size := pcm.size()
 
 	# WAV is little-endian. StreamPeerBuffer appends each field in order, which
