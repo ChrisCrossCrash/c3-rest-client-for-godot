@@ -1,39 +1,63 @@
-[gd_scene format=3 uid="uid://c3n6xhpr5h1gc"]
+[gd_scene format=3 uid="uid://b2tgktaoce0qo"]
 
-[ext_resource type="Script" uid="uid://cdn5e8i12wr13" path="res://examples/voice_chat_demo/voice_chat_demo.gd" id="1_pn1jc"]
-[ext_resource type="Script" uid="uid://cm0f1gy545fc6" path="res://c3_openai_client/c3_openai_client.gd" id="2_0fapu"]
+[ext_resource type="Script" uid="uid://cvjfxejilwg28" path="res://examples/voice_chat_demo/voice_chat_demo.gd" id="1_pn1jc"]
+[ext_resource type="PackedScene" uid="uid://c6q668x8yqorm" path="res://examples/voice_chat_demo/sound_visualizer/sound_visualizer.tscn" id="2_0fapu"]
+[ext_resource type="Script" uid="uid://cm0f1gy545fc6" path="res://c3_openai_client/c3_openai_client.gd" id="3_63uhu"]
+[ext_resource type="Script" uid="uid://n42elf5yyxwb" path="res://examples/voice_chat_demo/ui_overlay.gd" id="4_3cmd8"]
 
-[sub_resource type="AudioStreamMicrophone" id="AudioStreamMicrophone_pn1jc"]
+[sub_resource type="AudioStreamMicrophone" id="AudioStreamMicrophone_3cmd8"]
 
-[node name="VoiceChatDemo" type="Control" unique_id=1242445655]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="VoiceChatDemo" type="Node3D" unique_id=1544163719]
 script = ExtResource("1_pn1jc")
+system_prompt = "You are a voice assistant. Your responses will be read aloud, so follow these rules:
 
-[node name="Background" type="ColorRect" parent="." unique_id=629702617]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(0, 0, 0, 1)
+- Use only plain, natural spoken sentences. Never use markdown, bullet points, headers, code blocks, or any other formatting.
+- Keep responses as short as possible while still being helpful and complete.
+- Weave lists into natural sentences rather than listing items line by line.
+- Avoid symbols that don't translate to speech, such as asterisks or pound signs."
 
-[node name="MicPlayer" type="AudioStreamPlayer" parent="." unique_id=533992474]
-stream = SubResource("AudioStreamMicrophone_pn1jc")
-bus = &"Record"
+[node name="SoundVisualizer" parent="." unique_id=1299900860 instance=ExtResource("2_0fapu")]
+amplitude_scaling = 0.775
+amplitude_noise_contrib = 0.69
 
-[node name="PlaybackPlayer" type="AudioStreamPlayer" parent="." unique_id=1444276396]
+[node name="MicPlayer" type="AudioStreamPlayer" parent="." unique_id=407520923]
+stream = SubResource("AudioStreamMicrophone_3cmd8")
+bus = &"Microphone"
 
-[node name="C3OpenAIClientLLM" type="Node" parent="." unique_id=540063895]
-script = ExtResource("2_0fapu")
+[node name="PlaybackPlayer" type="AudioStreamPlayer" parent="." unique_id=1409495355]
+bus = &"AI Voice"
+
+[node name="C3OpenAIClientLLM" type="Node" parent="." unique_id=72122350]
+script = ExtResource("3_63uhu")
 metadata/_custom_type_script = "uid://cm0f1gy545fc6"
 
-[node name="C3OpenAIClientVoice" type="Node" parent="." unique_id=1594018998]
-script = ExtResource("2_0fapu")
+[node name="C3OpenAIClientVoice" type="Node" parent="." unique_id=106879754]
+script = ExtResource("3_63uhu")
 base_url = "http://127.0.0.1:8000/v1"
 metadata/_custom_type_script = "uid://cm0f1gy545fc6"
+
+[node name="C3OpenAIClient" type="Node" parent="." unique_id=850031192]
+script = ExtResource("3_63uhu")
+base_url = "https://api.openai.com/v1"
+metadata/_custom_type_script = "uid://cm0f1gy545fc6"
+
+[node name="UIOverlay" type="CanvasLayer" parent="." unique_id=81678571]
+script = ExtResource("4_3cmd8")
+
+[node name="ToastLabel" type="Label" parent="UIOverlay" unique_id=1150776598]
+visible = false
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -554.0
+offset_top = -621.0
+offset_right = 554.0
+offset_bottom = -25.0
+grow_horizontal = 2
+grow_vertical = 0
+text = "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since 1966, when designers at Letraset and James Mosley, the librarian at St Bride Printing Library, took a 1914 Cicero translation and scrambled it to make dummy text for Letraset's Body Type sheets. It has survived not only many decades, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised thanks to these sheets and more recently with desktop publishing software including versions of Lorem Ipsum."
+horizontal_alignment = 1
+vertical_alignment = 2
+autowrap_mode = 3

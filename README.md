@@ -48,6 +48,7 @@ Copy the `c3_openai_client/` directory into your project's `addons/` directory.
 			push_error("Chat failed: " + str(res.error))
 	```
 
-## Full example
+## Examples
 
-See [`examples/openai_client_demo/openai_client_demo.gd`](examples/openai_client_demo/openai_client_demo.gd) for a complete walkthrough covering model listing, chat, vision, TTS, and STT.
+- [`examples/openai_client_demo/openai_client_demo.gd`](examples/openai_client_demo/openai_client_demo.gd) — complete walkthrough covering chat, vision, TTS, and STT
+- [`examples/voice_chat_demo/voice_chat_demo.gd`](examples/voice_chat_demo/voice_chat_demo.gd) — real-time voice chat using microphone input, STT, chat, and TTS

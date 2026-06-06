@@ -1,0 +1,78 @@
+[gd_scene format=3 uid="uid://c6q668x8yqorm"]
+
+[ext_resource type="Script" uid="uid://52yvs75sauir" path="res://examples/voice_chat_demo/sound_visualizer/sound_visualizer.gd" id="1_nhsi8"]
+[ext_resource type="Shader" uid="uid://dq8ej2krqpyhh" path="res://examples/voice_chat_demo/sound_visualizer/sound_visualizer.gdshader" id="2_lmq8o"]
+
+[sub_resource type="Environment" id="Environment_lmq8o"]
+background_energy_multiplier = 0.0
+ambient_light_source = 1
+ambient_light_sky_contribution = 0.0
+tonemap_mode = 4
+tonemap_agx_contrast = 1.54
+ssao_enabled = true
+ssao_radius = 0.05
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.0771
+
+[sub_resource type="SphereMesh" id="SphereMesh_lmq8o"]
+radius = 0.25
+height = 0.5
+radial_segments = 256
+rings = 128
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_lmq8o"]
+frequency = 0.0267
+fractal_octaves = 3
+fractal_lacunarity = 1.5
+metadata/_preview_in_3d_space_ = true
+
+[sub_resource type="NoiseTexture3D" id="NoiseTexture3D_ax43h"]
+width = 128
+height = 128
+depth = 128
+noise = SubResource("FastNoiseLite_lmq8o")
+seamless = true
+seamless_blend_skirt = 0.5
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ax43h"]
+render_priority = 0
+shader = ExtResource("2_lmq8o")
+shader_parameter/noise_texture_3d = SubResource("NoiseTexture3D_ax43h")
+shader_parameter/noise_strength = 0.186000008835
+shader_parameter/movement_speed = 5.0
+shader_parameter/normal_eps = 0.00400000019
+shader_parameter/normal_depth = 0.17200000817
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wrspi"]
+roughness = 0.3
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_lmq8o"]
+material = SubResource("StandardMaterial3D_wrspi")
+size = Vector2(100, 100)
+
+[node name="VoiceVisualizer" type="Node3D" unique_id=1299900860]
+script = ExtResource("1_nhsi8")
+amplitude_scaling = 0.5
+amplitude_noise_contrib = 2.0
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=390403921]
+environment = SubResource("Environment_lmq8o")
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=534809412]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2)
+
+[node name="SpotLight3D" type="SpotLight3D" parent="." unique_id=507259044]
+transform = Transform3D(1, 0, 0, 0, 0.7071067, 0.70710677, 0, -0.70710677, 0.7071067, 0, 2.2053175, 2)
+light_color = Color(0.16078432, 1, 0.84705883, 1)
+light_volumetric_fog_energy = 8.36
+light_size = 0.5
+shadow_enabled = true
+
+[node name="SphereMesh" type="MeshInstance3D" parent="." unique_id=1391262334]
+transform = Transform3D(-0.8660255, 0, 0.5000001, 0, 1, 0, -0.5000001, 0, -0.8660255, 0, 0, 0)
+mesh = SubResource("SphereMesh_lmq8o")
+surface_material_override/0 = SubResource("ShaderMaterial_ax43h")
+
+[node name="Floor" type="MeshInstance3D" parent="." unique_id=1232884093]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, -48)
+mesh = SubResource("PlaneMesh_lmq8o")
