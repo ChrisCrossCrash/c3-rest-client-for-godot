@@ -1,7 +1,6 @@
 # C3 Godot Utils
-# 4.2.0
-# File revision: 2026-06-02
-# Modified from source on 2026-06-03, will upstream changes.
+# v4.2.1
+# File revision: 2026-06-05
 
 class_name C3SSERequest
 extends Node
