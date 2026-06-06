@@ -335,25 +335,28 @@ func _audio_stream_wav_to_bytes(wav: AudioStreamWAV) -> PackedByteArray:
 	var byte_rate := wav.mix_rate * num_channels * bytes_per_sample
 	var block_align := num_channels * bytes_per_sample
 	var data_size := pcm.size()
-	var header := PackedByteArray()
-	header.resize(44)
+
+	# WAV is little-endian. StreamPeerBuffer appends each field in order, which
+	# reads more clearly than hand-encoding every byte at a fixed offset.
+	var header := StreamPeerBuffer.new()
+	header.big_endian = false
 	# RIFF chunk
-	header.encode_u8(0, 0x52); header.encode_u8(1, 0x49); header.encode_u8(2, 0x46); header.encode_u8(3, 0x46)  # "RIFF"
-	header.encode_u32(4, 36 + data_size)  # file size - 8
-	header.encode_u8(8, 0x57); header.encode_u8(9, 0x41); header.encode_u8(10, 0x56); header.encode_u8(11, 0x45)  # "WAVE"
+	header.put_data("RIFF".to_ascii_buffer())
+	header.put_u32(36 + data_size)  # file size - 8
+	header.put_data("WAVE".to_ascii_buffer())
 	# fmt chunk
-	header.encode_u8(12, 0x66); header.encode_u8(13, 0x6D); header.encode_u8(14, 0x74); header.encode_u8(15, 0x20)  # "fmt "
-	header.encode_u32(16, 16)  # chunk size
-	header.encode_u16(20, 1)  # PCM format
-	header.encode_u16(22, num_channels)
-	header.encode_u32(24, wav.mix_rate)
-	header.encode_u32(28, byte_rate)
-	header.encode_u16(32, block_align)
-	header.encode_u16(34, bits_per_sample)
+	header.put_data("fmt ".to_ascii_buffer())
+	header.put_u32(16)  # chunk size
+	header.put_u16(1)  # PCM format
+	header.put_u16(num_channels)
+	header.put_u32(wav.mix_rate)
+	header.put_u32(byte_rate)
+	header.put_u16(block_align)
+	header.put_u16(bits_per_sample)
 	# data chunk
-	header.encode_u8(36, 0x64); header.encode_u8(37, 0x61); header.encode_u8(38, 0x74); header.encode_u8(39, 0x61)  # "data"
-	header.encode_u32(40, data_size)
-	return header + pcm
+	header.put_data("data".to_ascii_buffer())
+	header.put_u32(data_size)
+	return header.data_array + pcm
 
 
 # Internal HTTP POST method. Can be overridden in tests.

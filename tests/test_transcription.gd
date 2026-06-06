@@ -119,6 +119,33 @@ class TestCreateTranscription extends GutTest:
 		await client.create_transcription(make_wav_stream())
 		assert_eq(client.request_log[0]["filename"], "audio.wav")
 
+	func test_wav_header_is_canonical_pcm() -> void:
+		# Golden 44-byte header for make_wav_stream(): 44100 Hz, mono, 16-bit,
+		# 4 bytes of PCM data. Hand-computed so it catches an encoding regression
+		# that comparing the helper against itself could not.
+		var bytes := client._audio_stream_wav_to_bytes(make_wav_stream())
+		var expected := PackedByteArray([
+			0x52, 0x49, 0x46, 0x46,  # "RIFF"
+			0x28, 0x00, 0x00, 0x00,  # file size - 8 = 40
+			0x57, 0x41, 0x56, 0x45,  # "WAVE"
+			0x66, 0x6D, 0x74, 0x20,  # "fmt "
+			0x10, 0x00, 0x00, 0x00,  # fmt chunk size = 16
+			0x01, 0x00,              # PCM format = 1
+			0x01, 0x00,              # channels = 1
+			0x44, 0xAC, 0x00, 0x00,  # sample rate = 44100
+			0x88, 0x58, 0x01, 0x00,  # byte rate = 88200
+			0x02, 0x00,              # block align = 2
+			0x10, 0x00,              # bits per sample = 16
+			0x64, 0x61, 0x74, 0x61,  # "data"
+			0x04, 0x00, 0x00, 0x00,  # data size = 4
+		])
+		assert_eq(bytes.slice(0, 44), expected)
+
+	func test_wav_pcm_follows_header() -> void:
+		var stream := make_wav_stream()
+		var bytes := client._audio_stream_wav_to_bytes(stream)
+		assert_eq(bytes.slice(44), stream.data)
+
 	func test_returns_failed_response_on_network_error() -> void:
 		client.preset_response = {
 			"ok": false,
