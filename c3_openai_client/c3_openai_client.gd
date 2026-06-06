@@ -115,7 +115,8 @@ func chat_completion(
 	res.refusal = refusal if refusal is String else ""
 	var finish_reason: Variant = choice.get("finish_reason")
 	res.finish_reason = finish_reason if finish_reason is String else ""
-	res.model = json_dict.get("model", "")
+	var model_val: Variant = json_dict.get("model")
+	res.model = model_val if model_val is String else ""
 	var raw_usage: Dictionary = json_dict.get("usage", {})
 	res.usage = {
 		"prompt_tokens": int(raw_usage.get("prompt_tokens", 0)),
