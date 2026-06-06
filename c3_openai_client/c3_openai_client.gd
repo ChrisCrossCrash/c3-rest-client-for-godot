@@ -138,6 +138,8 @@ func chat_completion_stream(
 		opts = ChatOptions.new()
 	var body := _build_chat_body(messages, opts)
 	body["stream"] = true
+	if opts.include_usage:
+		body["stream_options"] = {"include_usage": true}
 	var stream := ChatStream.new()
 	add_child(stream)
 	stream._start(
@@ -602,6 +604,12 @@ class ChatOptions:
 	var max_tokens := -1
 	## One or more sequences where generation stops. Leave empty to omit from the request.
 	var stop := PackedStringArray()
+	## Streaming only: request a final usage chunk so
+	## [member ChatCompletionResponse.usage] is populated. Has no effect on
+	## [method chat_completion], which always returns usage. Sent as
+	## [code]stream_options.include_usage[/code]; leave [code]false[/code] for
+	## servers that reject the field.
+	var include_usage := false
 
 
 ## The response returned by [method chat_completion].
@@ -614,6 +622,10 @@ class ChatCompletionResponse:
 	var refusal := ""
 	var finish_reason := ""
 	var model := ""
+	## Token counts: [code]prompt_tokens[/code], [code]completion_tokens[/code],
+	## and [code]total_tokens[/code]. Always populated by [method chat_completion].
+	## For [method chat_completion_stream] this remains an empty [Dictionary]
+	## unless [member ChatOptions.include_usage] was set to [code]true[/code].
 	var usage := {}
 
 

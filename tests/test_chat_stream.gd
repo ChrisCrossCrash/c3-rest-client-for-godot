@@ -180,6 +180,20 @@ class TestChatCompletionStream extends GutTest:
 		var body: Variant = JSON.parse_string(client.last_sse.last_body)
 		assert_true(body["stream"])
 
+	func test_omits_stream_options_by_default() -> void:
+		start_stream()
+		var body: Variant = JSON.parse_string(client.last_sse.last_body)
+		assert_false(body.has("stream_options"))
+
+	func test_include_usage_sets_stream_options() -> void:
+		var opts := opts_with_model()
+		opts.include_usage = true
+		client.chat_completion_stream(
+			[C3OpenAIClient.make_user_msg("Hello")], opts
+		)
+		var body: Variant = JSON.parse_string(client.last_sse.last_body)
+		assert_eq(body["stream_options"], {"include_usage": true})
+
 	func test_request_body_has_messages_and_model() -> void:
 		client.chat_completion_stream(
 			[C3OpenAIClient.make_user_msg("Hello")], opts_with_model("gpt-4o")
