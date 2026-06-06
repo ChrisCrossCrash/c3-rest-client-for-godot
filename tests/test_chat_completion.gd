@@ -259,6 +259,24 @@ class TestChatCompletion extends GutTest:
 		await client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
 		assert_signal_emitted(client, "request_failed")
 
+	func test_returns_failed_response_on_malformed_choice() -> void:
+		client.preset_response = {
+			"ok": true, "body": '{"choices": [{}]}'.to_utf8_buffer()
+		}
+		var result := await client.chat_completion(
+			[C3OpenAIClient.make_user_msg("Hello")]
+		)
+		assert_false(result.ok)
+		assert_eq(result.error.kind, &"parse")
+
+	func test_emits_request_failed_on_malformed_choice() -> void:
+		client.preset_response = {
+			"ok": true, "body": '{"choices": [{}]}'.to_utf8_buffer()
+		}
+		watch_signals(client)
+		await client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
+		assert_signal_emitted(client, "request_failed")
+
 	func test_warns_when_model_is_empty() -> void:
 		client.preset_response = {
 			"ok": true, "body": make_json_res("Hi").to_utf8_buffer()

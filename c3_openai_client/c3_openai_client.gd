@@ -91,13 +91,30 @@ func chat_completion(
 		request_failed.emit(res.error)
 		return res
 	var json_dict: Dictionary = json
-	var choice: Dictionary = (choices as Array)[0]
-	var message: Dictionary = choice["message"]
+	var choice_val: Variant = (choices as Array)[0]
+	if not choice_val is Dictionary:
+		res.ok = false
+		res.error = ApiError.parse_failure(
+			"Response JSON choice is malformed.", body_str
+		)
+		request_failed.emit(res.error)
+		return res
+	var choice: Dictionary = choice_val
+	var message_val: Variant = choice.get("message")
+	if not message_val is Dictionary:
+		res.ok = false
+		res.error = ApiError.parse_failure(
+			"Response JSON choice missing message.", body_str
+		)
+		request_failed.emit(res.error)
+		return res
+	var message: Dictionary = message_val
 	var content: Variant = message.get("content")
 	res.content = content if content is String else ""
 	var refusal: Variant = message.get("refusal")
 	res.refusal = refusal if refusal is String else ""
-	res.finish_reason = choice["finish_reason"]
+	var finish_reason: Variant = choice.get("finish_reason")
+	res.finish_reason = finish_reason if finish_reason is String else ""
 	res.model = json_dict.get("model", "")
 	var raw_usage: Dictionary = json_dict.get("usage", {})
 	res.usage = {
