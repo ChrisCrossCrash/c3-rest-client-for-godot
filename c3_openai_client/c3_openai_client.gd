@@ -342,6 +342,8 @@ func _build_chat_body(messages: Array, opts: ChatOptions) -> Dictionary:
 		body["max_tokens"] = opts.max_tokens
 	if not opts.stop.is_empty():
 		body["stop"] = opts.stop
+	if not opts.response_format.is_empty():
+		body["response_format"] = opts.response_format
 	return body
 
 
@@ -621,6 +623,32 @@ class ChatOptions:
 	## [code]stream_options.include_usage[/code]; leave [code]false[/code] for
 	## servers that reject the field.
 	var include_usage := false
+	## Constrain the model's output format. Set to a [code]response_format[/code]
+	## object as defined by the OpenAI API — for example:
+	## [codeblock]
+	## opts.response_format = {
+	##     "type": "json_schema",
+	##     "json_schema": {
+	##         "name": "joke_response",
+	##         "strict": true,
+	##         "schema": {
+	##             "type": "object",
+	##             "properties": {
+	##                 "joke": {"type": "string"},
+	##                 "punchline": {"type": "string"}
+	##             },
+	##             "required": ["joke", "punchline"],
+	##             "additionalProperties": false
+	##         }
+	##     }
+	## }
+	## [/codeblock]
+	## Leave empty to omit [code]response_format[/code] from the request entirely.
+	## When set, [member ChatCompletionResponse.content] will contain a JSON string
+	## that must be parsed by the caller. [br]
+	## See the [url=https://developers.openai.com/api/docs/guides/structured-outputs]
+	## OpenAI Structured Outputs guide[/url] for more information.
+	var response_format := {}
 
 
 ## The response returned by [method chat_completion].

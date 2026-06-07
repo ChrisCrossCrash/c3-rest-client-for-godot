@@ -176,6 +176,37 @@ class TestChatCompletion extends GutTest:
 		)
 		assert_eq(client.request_log[0]["body"]["max_tokens"], 100)
 
+	func test_response_format_omitted_when_empty() -> void:
+		client.preset_response = {
+			"ok": true, "body": make_json_res("Hi").to_utf8_buffer()
+		}
+		await client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
+		assert_false(client.request_log[0]["body"].has("response_format"))
+
+	func test_response_format_sent_when_set() -> void:
+		client.preset_response = {
+			"ok": true, "body": make_json_res('{"joke":"Why did the chicken cross the road?"}').to_utf8_buffer()
+		}
+		var opts := C3OpenAIClient.ChatOptions.new()
+		opts.response_format = {
+			"type": "json_schema",
+			"json_schema": {
+				"name": "joke_response",
+				"strict": true,
+				"schema": {
+					"type": "object",
+					"properties": {"joke": {"type": "string"}},
+					"required": ["joke"]
+				}
+			}
+		}
+		await client.chat_completion(
+			[C3OpenAIClient.make_user_msg("Tell me a joke")], opts
+		)
+		assert_eq(
+			client.request_log[0]["body"]["response_format"], opts.response_format
+		)
+
 	func test_returns_failed_response_on_network_error() -> void:
 		client.preset_response = {
 			"ok": false,

@@ -18,6 +18,7 @@ func _ready() -> void:
 	client.api_key = OS.get_environment("OPENAI_API_KEY")
 
 	var chat_res_str := await _chat_non_streaming()
+	await _chat_structured_output()
 	await _chat_streaming()
 	await _chat_vision()
 	await _voice_tts(chat_res_str)
@@ -49,15 +50,45 @@ func _chat_non_streaming() -> String:
 	return response.content
 
 
-	var completion_res := await client.chat_completion(messages, opts)
-	if not completion_res.ok:
-		_quit_with_error(
-			"Error generating chat completion: " + str(completion_res.error)
+func _chat_structured_output() -> void:
+	_render_text("Chat completion (structured output):")
+	var opts := C3OpenAIClient.ChatOptions.new()
+	opts.model = CHAT_MODEL
+	opts.response_format = {
+		"type": "json_schema",
+		"json_schema": {
+			"name": "joke_response",
+			"strict": true,
+			"schema": {
+				"type": "object",
+				"properties": {
+					"joke": {"type": "string"},
+					"punchline": {"type": "string"}
+				},
+				"required": ["joke", "punchline"],
+				"additionalProperties": false
+			}
+		}
+	}
+	var response := await client.chat_completion(
+		[C3OpenAIClient.make_user_msg("Tell me a joke.")],
+		opts
+	)
+	if not response.ok:
+		push_error(
+			"Error generating structured completion: " + str(response.error)
 		)
 		return
 
-	_render_text("User: " + user_msg_str_llm)
-	_render_text("Assistant: " + completion_res.content)
+	var parsed: Variant = JSON.parse_string(response.content)
+	if not parsed is Dictionary:
+		push_error(
+			"Unexpected structured output format: " + str(response.content)
+		)
+		return
+	var d: Dictionary = parsed
+	_render_text("Joke: " + str(d.get("joke", "")))
+	_render_text("Punchline: " + str(d.get("punchline", "")))
 	_render_text("---")
 
 
