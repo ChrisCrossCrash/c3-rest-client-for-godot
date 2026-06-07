@@ -20,7 +20,9 @@ Tested on Godot 4.6.x with automated ([GUT](https://github.com/bitwes/Gut)) and 
 
 ## Installation
 
-Copy the `c3_openai_client/` directory into your project's `addons/` directory.
+To install `C3OpenAIClient` in your Godot project, simply click on the "Asset Store" tab on the top of the Godot editor window and search for "C3 OpenAI-Compatible Client". Then, click "Download" and "Install". The addon will be automatically added to your project, and the `C3OpenAIClient` node will be available in the "Create New Node" dialog.
+
+Alternatively, you may download the latest release from [GitHub](https://github.com/ChrisCrossCrash/c3-openai-client-for-godot/releases) and copy the contents of the `addons/c3_openai_client` folder into your project's `addons/c3_openai_client` directory.
 
 ## Quick start
 
