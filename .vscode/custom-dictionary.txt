@@ -44,11 +44,13 @@ randfn
 respawn
 SCROLLLOCK
 smoothstep
+softprops
 speaches
 stylebox
 subdirs
 tscn
 tweens
+undecoded
 Userinfo
 VOLUMEDOWN
 VOLUMEMUTE

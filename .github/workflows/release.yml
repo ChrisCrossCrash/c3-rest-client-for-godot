@@ -1,11 +1,12 @@
-name: tests
+name: release
 
 on:
-  pull_request:
-  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
 
 jobs:
-  test:
+  gut:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -28,3 +29,20 @@ jobs:
         run: |
           godot --headless --path . -s addons/gut/gut_cmdln.gd \
             -gdir=res://tests -ginclude_subdirs -gexit
+
+  release:
+    needs: gut
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build asset zip
+        run: python scripts/build_asset.py ${{ github.ref_name }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/c3_openai_client_${{ github.ref_name }}.zip
+          generate_release_notes: true
