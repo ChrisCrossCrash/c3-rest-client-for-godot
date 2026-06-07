@@ -27,15 +27,6 @@ bus = &"Microphone"
 [node name="PlaybackPlayer" type="AudioStreamPlayer" parent="." unique_id=1409495355]
 bus = &"AI Voice"
 
-[node name="C3OpenAIClientLLM" type="Node" parent="." unique_id=72122350]
-script = ExtResource("3_63uhu")
-metadata/_custom_type_script = "uid://cm0f1gy545fc6"
-
-[node name="C3OpenAIClientVoice" type="Node" parent="." unique_id=106879754]
-script = ExtResource("3_63uhu")
-base_url = "http://127.0.0.1:8000/v1"
-metadata/_custom_type_script = "uid://cm0f1gy545fc6"
-
 [node name="C3OpenAIClient" type="Node" parent="." unique_id=850031192]
 script = ExtResource("3_63uhu")
 base_url = "https://api.openai.com/v1"
