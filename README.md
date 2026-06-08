@@ -39,15 +39,15 @@ Alternatively, you may download the latest release from [GitHub](https://github.
     	client.api_key = OS.get_environment("OPENAI_API_KEY")
 
     	var messages := [
-    		C3OpenAIClient.make_system_msg("You are a helpful assistant."),
-    		C3OpenAIClient.make_user_msg("What is the capital of France?"),
+    		C3OpenAIClient.make_system_msg("You are a poor villager."),
+    		C3OpenAIClient.make_user_msg("En garde!"),
     	]
     	var opts := C3OpenAIClient.ChatOptions.new()
     	opts.model = "gpt-5.4-mini"
 
     	var res := await client.chat_completion(messages, opts)
     	if res.ok:
-    		print(res.content)  # "The capital of France is Paris."
+    		print(res.content)  # *Gasps sharply, dropping my basket of half-rotten turnips...
     	else:
     		push_error("Chat failed: " + str(res.error))
     ```
