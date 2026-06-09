@@ -1,6 +1,6 @@
 # C3 OpenAI-Compatible Client for Godot
 
-A drop-in Godot 4 client node for OpenAI-compatible HTTP APIs. Works with [OpenAI](https://openai.com/api/), [LM Studio](https://lmstudio.ai/), [speaches](https://speaches.ai/), and any other server that speaks the OpenAI REST API. This is a runtime addon for adding AI features to your game, not an editor assistant or Copilot-style tool.
+A drop-in Godot 4 client node for OpenAI-compatible HTTP APIs. Works with [OpenAI](https://openai.com/api/), [LM Studio](https://lmstudio.ai/), [speaches](https://speaches.ai/), and any other server that speaks the OpenAI REST API. This is a runtime addon for adding AI features to your game, **not** an editor assistant or Copilot-style tool.
 
 <img src="./media/banner.jpg" width="100%" alt="GDScript code from the C3 OpenAI Client addon" />
 
