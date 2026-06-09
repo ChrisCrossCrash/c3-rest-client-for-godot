@@ -316,6 +316,123 @@ func create_transcription(
 	return res
 
 
+## Generates an image from a text prompt and returns an [ImageGenerationResponse].
+## On success, [member ImageGenerationResponse.data] carries the first entry of
+## the API's [code]data[/code] array exactly as returned, and — when that entry
+## contains base64 image bytes — [member ImageGenerationResponse.image] holds the
+## decoded [Image]. When the server returns a [code]"url"[/code] instead,
+## [member ImageGenerationResponse.image] is [code]null[/code]; fetch it with
+## [method download_image] using [member ImageGenerationResponse.data]. See
+## [member ImageOptions.response_format] for how the request format is chosen.
+## Returns an [ImageGenerationResponse] with [member ImageGenerationResponse.ok]
+## set to [code]false[/code] and emits [signal request_failed] on failure —
+## including when base64 bytes are present but cannot be decoded.
+func create_image(
+	prompt: String, opts: ImageOptions = null
+) -> ImageGenerationResponse:
+	if opts == null:
+		opts = ImageOptions.new()
+	var res := ImageGenerationResponse.new()
+	var body := {
+		"model": opts.model,
+		"prompt": prompt,
+		"n": 1,
+	}
+	if not opts.size.is_empty():
+		body["size"] = opts.size
+	if not opts.quality.is_empty():
+		body["quality"] = opts.quality
+	if not opts.background.is_empty():
+		body["background"] = opts.background
+	var response_format := opts.response_format
+	if response_format == "auto":
+		response_format = "b64_json" if "dall-e" in opts.model.to_lower() else ""
+	if not response_format.is_empty():
+		body["response_format"] = response_format
+	var response := await _http_post(
+		base_url + "/images/generations", body, _headers()
+	)
+	if not response["ok"]:
+		res.ok = false
+		res.error = response["error"]
+		request_failed.emit(res.error)
+		return res
+	var body_str := (response["body"] as PackedByteArray).get_string_from_utf8()
+	var parser := JSON.new()
+	if parser.parse(body_str) != OK:
+		res.ok = false
+		res.error = ApiError.parse_failure(
+			"Failed to parse image response as JSON.", body_str
+		)
+		request_failed.emit(res.error)
+		return res
+	var json: Variant = parser.get_data()
+	var data: Variant = json.get("data") if json is Dictionary else null
+	if not data is Array or (data as Array).is_empty():
+		res.ok = false
+		res.error = ApiError.parse_failure(
+			'Image response JSON missing "data" array.', body_str
+		)
+		request_failed.emit(res.error)
+		return res
+	var first: Variant = (data as Array)[0]
+	if not first is Dictionary:
+		res.ok = false
+		res.error = ApiError.parse_failure(
+			"Image response data entry is malformed.", body_str
+		)
+		request_failed.emit(res.error)
+		return res
+	var first_dict: Dictionary = first
+	res.data = first_dict
+	# Decode base64 bytes into an Image when present. A url entry leaves image
+	# null (the caller downloads it); base64 that is present but undecodable is a
+	# genuine failure, even though the raw bytes remain on data.
+	var b64: Variant = first_dict.get("b64_json")
+	if b64 is String:
+		var image := image_from_base64(b64 as String)
+		if image == null:
+			res.ok = false
+			res.error = ApiError.parse_failure(
+				"Image response contained base64 data that could not be decoded.",
+				body_str
+			)
+			request_failed.emit(res.error)
+			return res
+		res.image = image
+	return res
+
+
+## Decodes a base64-encoded image — such as the [code]"b64_json"[/code] value of
+## an [method create_image] response entry — into an [Image]. The codec is
+## detected from the decoded bytes, so PNG, JPEG, and WebP are all supported.
+## Returns [code]null[/code] (and pushes an error) when [param b64] is empty,
+## is not a recognized image format, or cannot be decoded.
+static func image_from_base64(b64: String) -> Image:
+	if b64.is_empty():
+		push_error("C3OpenAIClient: image_from_base64() received an empty string.")
+		return null
+	return _image_from_bytes(Marshalls.base64_to_raw(b64))
+
+
+## Downloads an image from a URL — such as the [code]"url"[/code] value of an
+## [method create_image] response entry — and decodes it into an [Image]. The
+## codec is detected from the downloaded bytes, so PNG, JPEG, and WebP are all
+## supported. Returns [code]null[/code] (and pushes an error) on a transport
+## failure, a non-2xx response, or data that cannot be decoded. [br]
+## Unlike [method image_from_base64], this performs a network request, so it is
+## an instance method that must be [code]await[/code]ed rather than a static one.
+func download_image(url: String) -> Image:
+	var response := await _http_get(url, PackedStringArray())
+	if not response["ok"]:
+		push_error(
+			"C3OpenAIClient: download_image() request failed: "
+			+ str(response["error"])
+		)
+		return null
+	return _image_from_bytes(response["body"])
+
+
 # Creates the C3SSERequest used by chat_completion_stream().
 # Overridable in tests to substitute a fake transport.
 func _make_sse_request() -> C3SSERequest:
@@ -516,6 +633,60 @@ func _headers() -> PackedStringArray:
 	if not api_key.is_empty():
 		headers.append("Authorization: Bearer " + api_key)
 	return headers
+
+
+# Decodes raw image bytes into an Image, detecting the codec by magic bytes.
+# Shared by image_from_base64() and download_image(). Returns null (and pushes
+# an error) when the bytes are not a recognized format or cannot be decoded.
+static func _image_from_bytes(bytes: PackedByteArray) -> Image:
+	var image := Image.new()
+	var err := OK
+	if _is_png(bytes):
+		err = image.load_png_from_buffer(bytes)
+	elif _is_jpeg(bytes):
+		err = image.load_jpg_from_buffer(bytes)
+	elif _is_webp(bytes):
+		err = image.load_webp_from_buffer(bytes)
+	else:
+		push_error(
+			"C3OpenAIClient: could not detect a PNG, JPEG, or WebP image."
+		)
+		return null
+	if err != OK:
+		push_error(
+			"C3OpenAIClient: failed to decode the image (error %d)." % err
+		)
+		return null
+	return image
+
+
+# Image format detection by magic bytes, used by _image_from_bytes().
+static func _is_png(bytes: PackedByteArray) -> bool:
+	# 0x89 "PNG"
+	return (
+		bytes.size() >= 8
+		and bytes[0] == 0x89 and bytes[1] == 0x50
+		and bytes[2] == 0x4E and bytes[3] == 0x47
+	)
+
+
+static func _is_jpeg(bytes: PackedByteArray) -> bool:
+	# Start of Image marker 0xFFD8 followed by another marker (0xFF).
+	return (
+		bytes.size() >= 3
+		and bytes[0] == 0xFF and bytes[1] == 0xD8 and bytes[2] == 0xFF
+	)
+
+
+static func _is_webp(bytes: PackedByteArray) -> bool:
+	# "RIFF" <4-byte size> "WEBP"
+	return (
+		bytes.size() >= 12
+		and bytes[0] == 0x52 and bytes[1] == 0x49
+		and bytes[2] == 0x46 and bytes[3] == 0x46
+		and bytes[8] == 0x57 and bytes[9] == 0x45
+		and bytes[10] == 0x42 and bytes[11] == 0x50
+	)
 
 
 ## Structured error placed on the [code]error[/code] field of every response
@@ -836,3 +1007,54 @@ class ModelsResponse:
 	## Populated with error details when [member ok] is [code]false[/code].
 	var error: ApiError = null
 	var ids := PackedStringArray()
+
+
+## Optional parameters for an image generation request.
+class ImageOptions:
+	var model := ""
+	## Image dimensions as [code]"WIDTHxHEIGHT"[/code] (e.g. [code]"1024x1024"[/code]).
+	## Valid values vary by model. Leave empty to omit and use the server default.
+	var size := ""
+	## Quality tier. Valid values vary by model — for example
+	## [code]"low"[/code]/[code]"medium"[/code]/[code]"high"[/code] for the
+	## gpt-image family, or [code]"standard"[/code]/[code]"hd"[/code] for dall-e-3.
+	## Leave empty to omit and use the server default.
+	var quality := ""
+	## Background transparency, supported by the gpt-image models:
+	## [code]"transparent"[/code], [code]"opaque"[/code], or [code]"auto"[/code]
+	## (the server default). [code]"transparent"[/code] requires a PNG or WebP
+	## output — the default output is PNG, which Godot decodes with its alpha
+	## channel intact, so a transparent result is ready to drop onto a sprite.
+	## Leave empty to omit and use the server default.
+	var background := ""
+	## How the request's [code]response_format[/code] field is chosen: [br]
+	## • [code]"auto"[/code] (default) — sends [code]"b64_json"[/code] when
+	## [member model] contains [code]"dall-e"[/code] (those models default to a
+	## URL), and omits the field otherwise (the gpt-image models return base64 by
+	## default and reject it). This keeps [member ImageGenerationResponse.image]
+	## populated out of the box for both families. [br]
+	## • [code]""[/code] — always omit the field, taking the server's default
+	## (use this to deliberately get a URL from dall-e). [br]
+	## • any other value (e.g. [code]"b64_json"[/code], [code]"url"[/code]) — sent
+	## as-is, for servers with their own conventions.
+	var response_format := "auto"
+
+
+## The response returned by [method create_image].
+class ImageGenerationResponse:
+	## [code]true[/code] if the request succeeded.
+	var ok := true
+	## Populated with error details when [member ok] is [code]false[/code].
+	var error: ApiError = null
+	## The decoded image, ready to use — for example with
+	## [method ImageTexture.create_from_image]. Populated when the response carried
+	## base64 bytes; [code]null[/code] when the server returned a [code]"url"[/code]
+	## instead (fetch it with [method download_image] using [member data]).
+	var image: Image = null
+	## The first entry of the API's [code]data[/code] array, as returned. Its keys
+	## depend on the model and [member ImageOptions.response_format] — typically
+	## [code]"b64_json"[/code] or [code]"url"[/code], plus [code]"revised_prompt"[/code]
+	## when the model revises the prompt. Populated on success, and also when a
+	## present-but-undecodable [code]"b64_json"[/code] fails the response, so the
+	## raw bytes stay available.
+	var data := {}

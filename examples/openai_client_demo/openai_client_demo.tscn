@@ -3,6 +3,9 @@
 [ext_resource type="Script" uid="uid://7wumxmcnfuwb" path="res://examples/openai_client_demo/openai_client_demo.gd" id="1_pxfbr"]
 [ext_resource type="Script" uid="uid://cm0f1gy545fc6" path="res://c3_openai_client/c3_openai_client.gd" id="2_pxfbr"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
+bg_color = Color(0, 0, 0, 1)
+
 [node name="OpenaiClientDemo" type="Control" unique_id=575085511]
 layout_mode = 3
 anchors_preset = 15
@@ -19,16 +22,32 @@ metadata/_custom_type_script = "uid://cm0f1gy545fc6"
 
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="." unique_id=-201143042]
 
-[node name="ScrollContainer" type="ScrollContainer" parent="." unique_id=701493056]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=788089008]
+layout_mode = 0
+offset_right = 1152.0
+offset_bottom = 648.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
 
-[node name="Label" type="Label" parent="ScrollContainer" unique_id=1879096083]
+[node name="ScrollContainer" type="ScrollContainer" parent="HBoxContainer" unique_id=701493056]
+layout_mode = 2
+size_flags_horizontal = 3
+horizontal_scroll_mode = 0
+
+[node name="Label" type="Label" parent="HBoxContainer/ScrollContainer" unique_id=1879096083]
 custom_minimum_size = Vector2(0, 50)
 layout_mode = 2
 size_flags_horizontal = 3
 autowrap_mode = 3
+
+[node name="PanelContainer" type="PanelContainer" parent="HBoxContainer" unique_id=1627258405]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+
+[node name="TextureRect" type="TextureRect" parent="HBoxContainer/PanelContainer" unique_id=2062408994]
+custom_minimum_size = Vector2(0, 256)
+layout_mode = 2
+size_flags_horizontal = 3
+expand_mode = 1
+stretch_mode = 5

@@ -4,10 +4,12 @@ const CHAT_MODEL := "gpt-5.4-mini"
 const TTS_MODEL := "gpt-4o-mini-tts"
 const TTS_VOICE := "marin"
 const STT_MODEL := "whisper-1"
+const IMAGE_MODEL := "gpt-image-1-mini"
 
 @onready var client: C3OpenAIClient = $C3OpenAIClient
 @onready var audio_stream_player: AudioStreamPlayer = $AudioStreamPlayer
-@onready var label: Label = $ScrollContainer/Label
+@onready var label: Label = $HBoxContainer/ScrollContainer/Label
+@onready var texture_rect: TextureRect = $HBoxContainer/PanelContainer/TextureRect
 
 
 func _ready() -> void:
@@ -21,6 +23,7 @@ func _ready() -> void:
 	await _chat_structured_output()
 	await _chat_streaming()
 	await _chat_vision()
+	await _image_generation()
 	await _voice_tts(chat_res_str)
 	await _voice_stt()
 
@@ -140,6 +143,30 @@ func _chat_vision() -> void:
 	_render_text("User: " + user_msg)
 	_render_text("Assistant: " + response.content)
 	_render_text("---")
+
+
+func _image_generation() -> void:
+	_render_text("Generating image...")
+	var prompt := "Pixel-art poor villager NPC"
+	var opts := C3OpenAIClient.ImageOptions.new()
+	opts.model = IMAGE_MODEL
+	opts.size = "1024x1024"
+	opts.quality = "low"
+	opts.background = "transparent"
+	var response := await client.create_image(prompt, opts)
+	if not response.ok:
+		push_error("Error generating image: " + str(response.error))
+		return
+	if response.image == null:
+		push_error("Image response did not contain decodable image data.")
+		return
+
+	texture_rect.texture = ImageTexture.create_from_image(response.image)
+	_render_text("Prompt: " + prompt)
+	var revised_prompt: String = response.data.get("revised_prompt", "")
+	if not revised_prompt.is_empty():
+		_render_text("Revised prompt: " + revised_prompt)
+	_render_text("Image generated.\n---")
 
 
 func _voice_tts(text: String) -> void:

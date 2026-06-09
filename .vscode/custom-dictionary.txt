@@ -9,6 +9,8 @@ chatcmpl
 clampf
 cmdln
 cooldown
+dall
+dalle
 deadzone
 deepdml
 elif
@@ -42,6 +44,7 @@ onready
 randf
 randfn
 respawn
+RGBA
 SCROLLLOCK
 smoothstep
 softprops
@@ -56,4 +59,5 @@ VOLUMEDOWN
 VOLUMEMUTE
 VOLUMEUP
 WASD
+webp
 xpivot

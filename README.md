@@ -9,6 +9,7 @@ A drop-in Godot 4 client node for OpenAI-compatible HTTP APIs. Works with [OpenA
 - Chat completions — non-streaming or streaming (token-by-token via signals)
 - Vision (image input) support
 - `"type": "json_schema"` [structured output](https://developers.openai.com/api/docs/guides/structured-outputs) support
+- Image generation (returns a decoded `Image` in the response object)
 - Text-to-speech (returns a ready-to-play `AudioStream`)
 - Speech-to-text / transcription (`AudioStreamMP3` and `AudioStreamWAV`)
 - List available models
@@ -35,24 +36,24 @@ Alternatively, you may download the latest release from [GitHub](https://github.
 
     func _ready() -> void:
         # Get the API key from an environment variable and set it on the client.
-    	# You can skip this step for servers that don't require authentication.
-    	client.api_key = OS.get_environment("OPENAI_API_KEY")
+		# You can skip this step for servers that don't require authentication.
+		client.api_key = OS.get_environment("OPENAI_API_KEY")
 
-    	var messages := [
-    		C3OpenAIClient.make_system_msg("You are a poor villager."),
-    		C3OpenAIClient.make_user_msg("En garde!"),
-    	]
-    	var opts := C3OpenAIClient.ChatOptions.new()
-    	opts.model = "gpt-5.4-mini"
+		var messages := [
+			C3OpenAIClient.make_system_msg("You are a poor villager."),
+			C3OpenAIClient.make_user_msg("En garde!"),
+		]
+		var opts := C3OpenAIClient.ChatOptions.new()
+		opts.model = "gpt-5.4-mini"
 
-    	var res := await client.chat_completion(messages, opts)
-    	if res.ok:
-    		print(res.content)  # *Gasps sharply, dropping my basket of half-rotten turnips...
-    	else:
-    		push_error("Chat failed: " + str(res.error))
-    ```
+		var res := await client.chat_completion(messages, opts)
+		if res.ok:
+			print(res.content)  # *Gasps sharply, dropping my basket of half-rotten turnips...
+		else:
+			push_error("Chat failed: " + str(res.error))
+	```
 
 ## Examples
 
-- [`examples/openai_client_demo/openai_client_demo.gd`](examples/openai_client_demo/openai_client_demo.gd) — complete walkthrough covering model listing, chat (non-streaming and streaming), vision, structured output, text-to-speech, and speech-to-text
+- [`examples/openai_client_demo/openai_client_demo.gd`](examples/openai_client_demo/openai_client_demo.gd) — complete walkthrough covering model listing, chat (non-streaming and streaming), vision, structured output, image generation, text-to-speech, and speech-to-text
 - [`examples/voice_chat_demo/voice_chat_demo.gd`](examples/voice_chat_demo/voice_chat_demo.gd) — real-time voice chat using microphone input, speech-to-text, chat, and text-to-speech
