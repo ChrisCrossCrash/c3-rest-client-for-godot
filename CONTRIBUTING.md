@@ -2,6 +2,10 @@
 
 Contributions are welcome. Please open an issue before starting significant work so we can discuss the approach first.
 
+## Design Philosophy
+
+See the [README](README.md#design-philosophy) for the general philosophy.
+
 ## Running Tests
 
 Tests use the [GUT](https://github.com/bitwes/Gut) framework. Run the full suite headlessly:
