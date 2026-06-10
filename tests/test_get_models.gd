@@ -31,6 +31,28 @@ class TestGetModels extends GutTest:
 
 		assert_eq(result.ids, PackedStringArray(["model-a", "model-b"]))
 
+	func test_raw_body_contains_full_response() -> void:
+		client.preset_response = {
+			"ok": true,
+			"body":
+			'{"object": "list", "data": [{"id": "model-a", "owned_by": "acme"}]}'
+			. to_utf8_buffer()
+		}
+
+		var result := await client.get_models()
+
+		assert_eq(result.raw_body.get("object"), "list")
+
+	func test_raw_body_empty_on_network_error() -> void:
+		client.preset_response = {
+			"ok": false,
+			"error": C3OpenAIClient.ApiError.transport("Could not connect.")
+		}
+
+		var result := await client.get_models()
+
+		assert_eq(result.raw_body, {})
+
 	func test_returns_empty_ids_for_empty_data() -> void:
 		client.preset_response = {
 			"ok": true, "body": '{"data": []}'.to_utf8_buffer()

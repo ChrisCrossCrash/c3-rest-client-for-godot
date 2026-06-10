@@ -161,6 +161,19 @@ class TestCreateImage extends GutTest:
 		await client.create_image("A red square", opts)
 		assert_eq(client.request_log[0]["body"]["n"], 4)
 
+	func test_raw_body_contains_full_response() -> void:
+		client.preset_response = ok_image()
+		var result := await client.create_image("A red square")
+		assert_eq(result.raw_body.get("created"), 1234567890)
+
+	func test_raw_body_empty_on_network_error() -> void:
+		client.preset_response = {
+			"ok": false,
+			"error": C3OpenAIClient.ApiError.transport("Could not connect.")
+		}
+		var result := await client.create_image("A red square")
+		assert_eq(result.raw_body, {})
+
 	# --- response_format "auto" resolution ---
 
 	func test_auto_omits_response_format_for_non_dalle() -> void:

@@ -90,6 +90,25 @@ class TestChatCompletion extends GutTest:
 		)
 		assert_eq(client.request_log[0]["body"]["model"], "override-model")
 
+	func test_raw_body_contains_full_response() -> void:
+		client.preset_response = {
+			"ok": true, "body": make_json_res("Hi").to_utf8_buffer()
+		}
+		var result := await (
+			client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
+		)
+		assert_eq(result.raw_body.get("id"), "chatcmpl-abc")
+
+	func test_raw_body_empty_on_network_error() -> void:
+		client.preset_response = {
+			"ok": false,
+			"error": C3OpenAIClient.ApiError.transport("Could not connect.")
+		}
+		var result := await (
+			client.chat_completion([C3OpenAIClient.make_user_msg("Hello")])
+		)
+		assert_eq(result.raw_body, {})
+
 	func test_finish_reason_is_populated() -> void:
 		client.preset_response = {
 			"ok": true, "body": make_json_res("Hi", "length").to_utf8_buffer()

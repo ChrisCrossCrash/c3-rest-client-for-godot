@@ -107,6 +107,22 @@ class TestCreateTranscription extends GutTest:
 			client.request_log[0]["form_fields"]["model"], "whisper-large-v3"
 		)
 
+	func test_raw_body_contains_full_response() -> void:
+		var body := JSON.stringify(
+			{"text": "Hi", "language": "english", "duration": 1.5}
+		).to_utf8_buffer()
+		client.preset_response = {"ok": true, "body": body}
+		var result := await client.create_transcription(make_mp3_stream())
+		assert_eq(result.raw_body.get("language"), "english")
+
+	func test_raw_body_empty_on_network_error() -> void:
+		client.preset_response = {
+			"ok": false,
+			"error": C3OpenAIClient.ApiError.transport("Could not connect.")
+		}
+		var result := await client.create_transcription(make_mp3_stream())
+		assert_eq(result.raw_body, {})
+
 	func test_sends_file_field_named_file() -> void:
 		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
 		await client.create_transcription(make_mp3_stream())

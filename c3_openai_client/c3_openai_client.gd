@@ -39,6 +39,8 @@ func get_models() -> ModelsResponse:
 		request_failed.emit(res.error)
 		return res
 	var json: Variant = parser.get_data()
+	if json is Dictionary:
+		res.raw_body = json
 	var data: Variant = json.get("data") if json is Dictionary else null
 	if not data is Array:
 		res.ok = false
@@ -83,6 +85,8 @@ func chat_completion(
 		request_failed.emit(res.error)
 		return res
 	var json: Variant = parser.get_data()
+	if json is Dictionary:
+		res.raw_body = json
 	var choices: Variant = json.get("choices") if json is Dictionary else null
 	if not choices is Array or (choices as Array).is_empty():
 		res.ok = false
@@ -313,6 +317,8 @@ func create_transcription(
 		request_failed.emit(res.error)
 		return res
 	var json: Variant = parser.get_data()
+	if json is Dictionary:
+		res.raw_body = json
 	var text: Variant = (
 		(json as Dictionary).get("text") if json is Dictionary else null
 	)
@@ -372,6 +378,8 @@ func create_image(
 		request_failed.emit(res.error)
 		return res
 	var json: Variant = parser.get_data()
+	if json is Dictionary:
+		res.raw_body = json
 	var data: Variant = json.get("data") if json is Dictionary else null
 	if not data is Array or (data as Array).is_empty():
 		res.ok = false
@@ -848,6 +856,11 @@ class ChatCompletionResponse:
 	## For [method chat_completion_stream] this remains an empty [Dictionary]
 	## unless [member ChatOptions.include_usage] was set to [code]true[/code].
 	var usage := {}
+	## The full parsed response body as a [Dictionary], for fields this class does
+	## not surface. Populated whenever the server returned a valid JSON object;
+	## empty for streamed results (which have no single response body) and on
+	## transport, HTTP, or non-JSON errors.
+	var raw_body := {}
 
 
 ## A handle to an in-progress streaming chat completion, returned by
@@ -1023,6 +1036,12 @@ class TranscriptionResponse:
 	## Populated with error details when [member ok] is [code]false[/code].
 	var error: ApiError = null
 	var text := ""
+	## The full parsed response body as a [Dictionary], for fields this class does
+	## not surface — for example [code]"segments"[/code]/[code]"words"[/code] when
+	## [code]response_format[/code] is [code]"verbose_json"[/code]. Populated whenever
+	## the server returned a valid JSON object; empty on transport, HTTP, or
+	## non-JSON errors.
+	var raw_body := {}
 
 
 ## The response returned by [method get_models].
@@ -1032,6 +1051,11 @@ class ModelsResponse:
 	## Populated with error details when [member ok] is [code]false[/code].
 	var error: ApiError = null
 	var ids := PackedStringArray()
+	## The full parsed response body as a [Dictionary], for fields this class does
+	## not surface (for example each model's [code]"created"[/code]/[code]"owned_by"[/code]).
+	## Populated whenever the server returned a valid JSON object; empty on
+	## transport, HTTP, or non-JSON errors.
+	var raw_body := {}
 
 
 ## Optional parameters for an image generation request.
@@ -1089,3 +1113,9 @@ class ImageGenerationResponse:
 	## present-but-undecodable [code]"b64_json"[/code] fails the response, so the
 	## raw bytes stay available.
 	var data := {}
+	## The full parsed response body as a [Dictionary], for fields this class does
+	## not surface (for example top-level [code]"created"[/code] or [code]"usage"[/code]).
+	## [member data] is the first entry of its [code]"data"[/code] array. Populated
+	## whenever the server returned a valid JSON object; empty on transport, HTTP,
+	## or non-JSON errors.
+	var raw_body := {}
