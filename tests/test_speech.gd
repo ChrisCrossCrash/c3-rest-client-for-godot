@@ -15,6 +15,9 @@ class TestSpeechOptions extends GutTest:
 	func test_default_pcm_stereo() -> void:
 		assert_false(C3OpenAIClient.SpeechOptions.new().pcm_stereo)
 
+	func test_default_extra_body() -> void:
+		assert_eq(C3OpenAIClient.SpeechOptions.new().extra_body, {})
+
 
 ## Tests for [method C3OpenAIClient.create_speech].
 class TestCreateSpeech extends GutTest:
@@ -55,6 +58,20 @@ class TestCreateSpeech extends GutTest:
 		client.preset_response = ok_pcm()
 		await client.create_speech("Test speech text")
 		assert_eq(client.request_log[0]["body"]["input"], "Test speech text")
+
+	func test_extra_body_adds_keys_to_body() -> void:
+		client.preset_response = ok_pcm()
+		var opts := C3OpenAIClient.SpeechOptions.new()
+		opts.extra_body = {"speed": 1.25}
+		await client.create_speech("Hello", opts)
+		assert_eq(client.request_log[0]["body"]["speed"], 1.25)
+
+	func test_extra_body_overrides_library_keys() -> void:
+		client.preset_response = ok_pcm()
+		var opts := C3OpenAIClient.SpeechOptions.new()
+		opts.extra_body = {"voice": "custom"}
+		await client.create_speech("Hello", opts)
+		assert_eq(client.request_log[0]["body"]["voice"], "custom")
 
 	func test_sends_model_in_body() -> void:
 		client.preset_response = ok_pcm()

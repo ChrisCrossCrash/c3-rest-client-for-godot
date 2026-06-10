@@ -63,6 +63,33 @@ class TestChatCompletion extends GutTest:
 		)
 		assert_eq(result.content, "Hello there!")
 
+	func test_extra_body_defaults_empty() -> void:
+		assert_eq(C3OpenAIClient.ChatOptions.new().extra_body, {})
+
+	func test_extra_body_adds_keys_to_body() -> void:
+		client.preset_response = {
+			"ok": true, "body": make_json_res("Hi").to_utf8_buffer()
+		}
+		var opts := C3OpenAIClient.ChatOptions.new()
+		opts.model = "gpt-4o"
+		opts.extra_body = {"top_p": 0.5}
+		await client.chat_completion(
+			[C3OpenAIClient.make_user_msg("Hello")], opts
+		)
+		assert_eq(client.request_log[0]["body"]["top_p"], 0.5)
+
+	func test_extra_body_overrides_library_keys() -> void:
+		client.preset_response = {
+			"ok": true, "body": make_json_res("Hi").to_utf8_buffer()
+		}
+		var opts := C3OpenAIClient.ChatOptions.new()
+		opts.model = "gpt-4o"
+		opts.extra_body = {"model": "override-model"}
+		await client.chat_completion(
+			[C3OpenAIClient.make_user_msg("Hello")], opts
+		)
+		assert_eq(client.request_log[0]["body"]["model"], "override-model")
+
 	func test_finish_reason_is_populated() -> void:
 		client.preset_response = {
 			"ok": true, "body": make_json_res("Hi", "length").to_utf8_buffer()

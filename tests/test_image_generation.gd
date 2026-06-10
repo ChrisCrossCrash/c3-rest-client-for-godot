@@ -15,6 +15,9 @@ class TestImageOptions extends GutTest:
 	func test_default_background() -> void:
 		assert_eq(C3OpenAIClient.ImageOptions.new().background, "")
 
+	func test_default_extra_body() -> void:
+		assert_eq(C3OpenAIClient.ImageOptions.new().extra_body, {})
+
 	func test_default_response_format() -> void:
 		assert_eq(C3OpenAIClient.ImageOptions.new().response_format, "auto")
 
@@ -143,6 +146,20 @@ class TestCreateImage extends GutTest:
 		opts.background = "transparent"
 		await client.create_image("A red square", opts)
 		assert_eq(client.request_log[0]["body"]["background"], "transparent")
+
+	func test_extra_body_adds_keys_to_body() -> void:
+		client.preset_response = ok_image()
+		var opts := C3OpenAIClient.ImageOptions.new()
+		opts.extra_body = {"negative_prompt": "blurry"}
+		await client.create_image("A red square", opts)
+		assert_eq(client.request_log[0]["body"]["negative_prompt"], "blurry")
+
+	func test_extra_body_overrides_library_keys() -> void:
+		client.preset_response = ok_image()
+		var opts := C3OpenAIClient.ImageOptions.new()
+		opts.extra_body = {"n": 4}
+		await client.create_image("A red square", opts)
+		assert_eq(client.request_log[0]["body"]["n"], 4)
 
 	# --- response_format "auto" resolution ---
 

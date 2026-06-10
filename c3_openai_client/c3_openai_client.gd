@@ -63,6 +63,7 @@ func chat_completion(
 	if opts == null:
 		opts = ChatOptions.new()
 	var body := _build_chat_body(messages, opts)
+	body.merge(opts.extra_body, true)
 	var response := await _http_post(
 		base_url + "/chat/completions", body, _headers()
 	)
@@ -141,6 +142,7 @@ func chat_completion_stream(
 	body["stream"] = true
 	if opts.include_usage:
 		body["stream_options"] = {"include_usage": true}
+	body.merge(opts.extra_body, true)
 	var stream := ChatStream.new()
 	add_child(stream)
 	stream._start(
@@ -220,6 +222,7 @@ func create_speech(input: String, opts: SpeechOptions = null) -> SpeechResponse:
 		"voice": opts.voice,
 		"response_format": "pcm",
 	}
+	body.merge(opts.extra_body, true)
 	var response := await _http_post(
 		base_url + "/audio/speech", body, _headers()
 	)
@@ -285,6 +288,7 @@ func create_transcription(
 	var form_fields := {"model": opts.model}
 	if not opts.language.is_empty():
 		form_fields["language"] = opts.language
+	form_fields.merge(opts.extra_body, true)
 	var response := await _http_post_multipart(
 		base_url + "/audio/transcriptions",
 		form_fields,
@@ -349,6 +353,7 @@ func create_image(
 		response_format = "b64_json" if "dall-e" in opts.model.to_lower() else ""
 	if not response_format.is_empty():
 		body["response_format"] = response_format
+	body.merge(opts.extra_body, true)
 	var response := await _http_post(
 		base_url + "/images/generations", body, _headers()
 	)
@@ -820,6 +825,12 @@ class ChatOptions:
 	## See the [url=https://developers.openai.com/api/docs/guides/structured-outputs]
 	## OpenAI Structured Outputs guide[/url] for more information.
 	var response_format := {}
+	## Extra parameters merged into the request body for options this class does
+	## not expose — for example server-specific fields on non-OpenAI servers.
+	## Shallow-merged last, so its keys override the library's and each top-level
+	## key is replaced whole (to change a nested object, pass the whole object).
+	## Leave empty to send nothing extra.
+	var extra_body := {}
 
 
 ## The response returned by [method chat_completion].
@@ -972,6 +983,12 @@ class SpeechOptions:
 	## Whether the [code]"pcm"[/code] response is stereo. Most TTS servers
 	## output mono. Set to [code]true[/code] if the server produces stereo PCM.
 	var pcm_stereo := false
+	## Extra parameters merged into the request body for options this class does
+	## not expose — for example server-specific fields on non-OpenAI servers.
+	## Shallow-merged last, so its keys override the library's and each top-level
+	## key is replaced whole (to change a nested object, pass the whole object).
+	## Leave empty to send nothing extra.
+	var extra_body := {}
 
 
 ## The response returned by [method create_speech].
@@ -989,6 +1006,14 @@ class TranscriptionOptions:
 	var model := ""
 	## BCP-47 language code (e.g. [code]"en"[/code]). Leave empty to auto-detect.
 	var language := ""
+	## Extra parameters merged into the multipart form for options this class does
+	## not expose — for example [code]prompt[/code], [code]temperature[/code], or
+	## server-specific transcription fields. Shallow-merged last, so its keys
+	## override the library's. Because the request is multipart/form-data, each
+	## value is sent as an individually stringified form field — use scalar values
+	## ([String]/[int]/[float]/[bool]); arrays and nested objects are not supported
+	## here. Leave empty to send nothing extra.
+	var extra_body := {}
 
 
 ## The response returned by [method create_transcription].
@@ -1038,6 +1063,12 @@ class ImageOptions:
 	## • any other value (e.g. [code]"b64_json"[/code], [code]"url"[/code]) — sent
 	## as-is, for servers with their own conventions.
 	var response_format := "auto"
+	## Extra parameters merged into the request body for options this class does
+	## not expose — for example server-specific fields on non-OpenAI servers.
+	## Shallow-merged last, so its keys override the library's and each top-level
+	## key is replaced whole (to change a nested object, pass the whole object).
+	## Leave empty to send nothing extra.
+	var extra_body := {}
 
 
 ## The response returned by [method create_image].

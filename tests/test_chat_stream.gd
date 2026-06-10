@@ -63,6 +63,25 @@ class TestChatCompletionStream extends GutTest:
 		var stream := start_stream()
 		assert_is(stream, C3OpenAIClient.ChatStream)
 
+	func test_extra_body_merged_into_request() -> void:
+		var opts := opts_with_model()
+		opts.extra_body = {"top_p": 0.5}
+		client.chat_completion_stream(
+			[C3OpenAIClient.make_user_msg("Hello")], opts
+		)
+		var body: Dictionary = JSON.parse_string(client.last_sse.last_body)
+		assert_eq(body["top_p"], 0.5)
+
+	func test_extra_body_can_override_stream_flag() -> void:
+		# extra_body always wins, even over the library's structural keys.
+		var opts := opts_with_model()
+		opts.extra_body = {"stream": false}
+		client.chat_completion_stream(
+			[C3OpenAIClient.make_user_msg("Hello")], opts
+		)
+		var body: Dictionary = JSON.parse_string(client.last_sse.last_body)
+		assert_false(body["stream"])
+
 	func test_emits_delta_per_content_chunk() -> void:
 		var stream := start_stream()
 		var deltas := []

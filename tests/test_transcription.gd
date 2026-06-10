@@ -9,6 +9,9 @@ class TestTranscriptionOptions extends GutTest:
 	func test_default_language() -> void:
 		assert_eq(C3OpenAIClient.TranscriptionOptions.new().language, "")
 
+	func test_default_extra_body() -> void:
+		assert_eq(C3OpenAIClient.TranscriptionOptions.new().extra_body, {})
+
 
 ## Tests for [method C3OpenAIClient.create_transcription].
 class TestCreateTranscription extends GutTest:
@@ -83,6 +86,26 @@ class TestCreateTranscription extends GutTest:
 		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
 		await client.create_transcription(make_mp3_stream())
 		assert_false(client.request_log[0]["form_fields"].has("language"))
+
+	func test_extra_body_adds_form_fields() -> void:
+		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
+		var opts := C3OpenAIClient.TranscriptionOptions.new()
+		opts.extra_body = {"prompt": "proper nouns: Godot"}
+		await client.create_transcription(make_mp3_stream(), opts)
+		assert_eq(
+			client.request_log[0]["form_fields"]["prompt"],
+			"proper nouns: Godot"
+		)
+
+	func test_extra_body_overrides_library_fields() -> void:
+		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
+		var opts := C3OpenAIClient.TranscriptionOptions.new()
+		opts.model = "whisper-1"
+		opts.extra_body = {"model": "whisper-large-v3"}
+		await client.create_transcription(make_mp3_stream(), opts)
+		assert_eq(
+			client.request_log[0]["form_fields"]["model"], "whisper-large-v3"
+		)
 
 	func test_sends_file_field_named_file() -> void:
 		client.preset_response = {"ok": true, "body": make_json_res("Hi")}
