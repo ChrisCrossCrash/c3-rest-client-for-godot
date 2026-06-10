@@ -62,5 +62,5 @@ Alternatively, you may download the latest release from [GitHub](https://github.
 
 ## Examples
 
-- [`examples/openai_client_demo/openai_client_demo.gd`](examples/openai_client_demo/openai_client_demo.gd) — complete walkthrough covering model listing, chat (non-streaming and streaming), vision, structured output, image generation, text-to-speech, and speech-to-text
+- [`examples/openai_client_demo/openai_client_demo.gd`](examples/openai_client_demo/openai_client_demo.gd) — complete walkthrough covering model listing, chat (non-streaming and streaming), vision, structured output, image generation, text-to-speech, speech-to-text, and custom requests
 - [`examples/voice_chat_demo/voice_chat_demo.gd`](examples/voice_chat_demo/voice_chat_demo.gd) — real-time voice chat using microphone input, speech-to-text, chat, and text-to-speech
