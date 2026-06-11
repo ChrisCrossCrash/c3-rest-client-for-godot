@@ -16,13 +16,12 @@ def build(version: str):
     OUTPUT_DIR.mkdir(exist_ok=True)
 
     with zipfile.ZipFile(output_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+        target_dir = Path(f"addons/c3_openai_client-{version}")
         for file in sorted(ASSET_DIR.rglob("*")):
             if file.is_file():
-                zf.write(
-                    file, Path("addons/c3_openai_client") / file.relative_to(ASSET_DIR)
-                )
+                zf.write(file, target_dir / file.relative_to(ASSET_DIR))
 
-        zf.write(LICENSE_FILE, Path("addons/c3_openai_client") / LICENSE_FILE.name)
+        zf.write(LICENSE_FILE, target_dir / LICENSE_FILE.name)
 
     print(f"Built: {output_zip}")
 
