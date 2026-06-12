@@ -11,19 +11,29 @@ class_name C3TestDoubles
 @warning_ignore("missing_tool")
 class TestableClient extends C3RestClient:
 	## The response returned by the fake HTTP layer. Defaults to an empty success.
-	var preset_response := {"ok": true, "body": PackedByteArray()}
+	var preset_response := {
+		"ok": true,
+		"status": 200,
+		"headers": PackedStringArray(),
+		"body": PackedByteArray(),
+	}
 	## Ordered log of all requests made.
 	## Each entry is:[br]
-	## [code]{"method": String, "url": String, "body": String, "headers": PackedStringArray}[/code].
+	## [code]{"method": String, "url": String, "body": String, "headers": PackedStringArray, "timeout": float}[/code].
 	var request_log: Array[Dictionary] = []
 
 	func _http_request(
-		method: int, url: String, headers: PackedStringArray, body: String = ""
+		method: int,
+		url: String,
+		headers: PackedStringArray,
+		body: String = "",
+		timeout: float = 0.0
 	) -> Dictionary:
 		request_log.append({
-			"method": _HTTP_METHODS.find_key(method),
+			"method": Method.keys()[_HTTP_METHODS.find_key(method)],
 			"url": url,
 			"body": body,
 			"headers": headers,
+			"timeout": timeout,
 		})
 		return preset_response

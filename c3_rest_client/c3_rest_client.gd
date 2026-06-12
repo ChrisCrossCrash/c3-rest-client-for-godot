@@ -5,79 +5,176 @@ extends Node
 ##
 ## Add the node to the scene tree, point [member base_url] at a server, and
 ## [code]await[/code] [method request]. Every call returns a response object
-## carrying [member RestResponse.ok] and a typed [member RestResponse.error],
+## carrying [member ApiResponse.ok] and a typed [member ApiResponse.error],
 ## so a single [code]if not response.ok[/code] check covers transport failures,
 ## non-2xx statuses, and malformed bodies alike.
 
-
-## Emitted when a request fails. The [member RestResponse.ok] field of the
+## Emitted when a request fails. The [member ApiResponse.ok] field of the
 ## returned response object is the primary way to detect failure; this signal
 ## is a secondary broadcast for optional cross-cutting concerns such as global
 ## error logging.
 signal request_failed(error: ApiError)
 
-# HTTP method names accepted by request(), mapped to the HTTPClient constants
-# taken by _http_request().
+## HTTP method for [method request] and the per-verb convenience methods.
+enum Method { GET, HEAD, POST, PUT, DELETE, OPTIONS, PATCH }
+
+# Maps Method enum values to the HTTPClient constants taken by _http_request().
 const _HTTP_METHODS: Dictionary = {
-	"GET": HTTPClient.METHOD_GET,
-	"HEAD": HTTPClient.METHOD_HEAD,
-	"POST": HTTPClient.METHOD_POST,
-	"PUT": HTTPClient.METHOD_PUT,
-	"DELETE": HTTPClient.METHOD_DELETE,
-	"OPTIONS": HTTPClient.METHOD_OPTIONS,
-	"PATCH": HTTPClient.METHOD_PATCH,
+	Method.GET: HTTPClient.METHOD_GET,
+	Method.HEAD: HTTPClient.METHOD_HEAD,
+	Method.POST: HTTPClient.METHOD_POST,
+	Method.PUT: HTTPClient.METHOD_PUT,
+	Method.DELETE: HTTPClient.METHOD_DELETE,
+	Method.OPTIONS: HTTPClient.METHOD_OPTIONS,
+	Method.PATCH: HTTPClient.METHOD_PATCH,
 }
 
 ## The base URL that every [method request] path is appended to, including any
 ## API version prefix — for example [code]"https://api.example.com/v1"[/code].
 @export var base_url := ""
-## When non-empty, sent as a Bearer token in the [code]Authorization[/code]
-## header of every request. Leave empty for APIs that need no authentication.
-var api_key := ""
+## Headers sent on every request, merged before any per-request headers passed
+## to [method request]. Use this for node-level concerns such as authentication:
+## [codeblock]
+## client.base_headers = PackedStringArray([
+##     "Authorization: Bearer " + OS.get_environment("MY_API_KEY"),
+## ])
+## [/codeblock]
+var base_headers: PackedStringArray = PackedStringArray()
+## Maximum seconds to wait for a response. [code]0.0[/code] disables the
+## timeout (the default — waits indefinitely). Override per-call with the
+## [param timeout_seconds] argument of [method request].
+@export var timeout_seconds: float = 0.0
+
+
+## Sends a [code]GET[/code] request to [param path].
+## [param query] entries are URL-encoded and appended as a query string.
+func http_get(
+	path: String,
+	query: Dictionary = {},
+	headers: PackedStringArray = PackedStringArray(),
+	timeout: float = -1.0
+) -> ApiResponse:
+	return await request(path, Method.GET, {}, query, headers, timeout)
+
+
+## Sends a [code]HEAD[/code] request to [param path].
+## [param query] entries are URL-encoded and appended as a query string.
+func http_head(
+	path: String,
+	query: Dictionary = {},
+	headers: PackedStringArray = PackedStringArray(),
+	timeout: float = -1.0
+) -> ApiResponse:
+	return await request(path, Method.HEAD, {}, query, headers, timeout)
+
+
+## Sends a [code]POST[/code] request to [param path] with [param body] as the
+## JSON request body.
+func http_post(
+	path: String,
+	body: Dictionary = {},
+	query: Dictionary = {},
+	headers: PackedStringArray = PackedStringArray(),
+	timeout: float = -1.0
+) -> ApiResponse:
+	return await request(path, Method.POST, body, query, headers, timeout)
+
+
+## Sends a [code]PUT[/code] request to [param path] with [param body] as the
+## JSON request body.
+func http_put(
+	path: String,
+	body: Dictionary = {},
+	query: Dictionary = {},
+	headers: PackedStringArray = PackedStringArray(),
+	timeout: float = -1.0
+) -> ApiResponse:
+	return await request(path, Method.PUT, body, query, headers, timeout)
+
+
+## Sends a [code]PATCH[/code] request to [param path] with [param body] as the
+## JSON request body.
+func http_patch(
+	path: String,
+	body: Dictionary = {},
+	query: Dictionary = {},
+	headers: PackedStringArray = PackedStringArray(),
+	timeout: float = -1.0
+) -> ApiResponse:
+	return await request(path, Method.PATCH, body, query, headers, timeout)
+
+
+## Sends a [code]DELETE[/code] request to [param path].
+## [param query] entries are URL-encoded and appended as a query string.
+func http_delete(
+	path: String,
+	query: Dictionary = {},
+	headers: PackedStringArray = PackedStringArray(),
+	timeout: float = -1.0
+) -> ApiResponse:
+	return await request(path, Method.DELETE, {}, query, headers, timeout)
+
+
+## Sends an [code]OPTIONS[/code] request to [param path].
+## [param query] entries are URL-encoded and appended as a query string.
+func http_options(
+	path: String,
+	query: Dictionary = {},
+	headers: PackedStringArray = PackedStringArray(),
+	timeout: float = -1.0
+) -> ApiResponse:
+	return await request(path, Method.OPTIONS, {}, query, headers, timeout)
 
 
 ## Sends a request to [param path] — appended to [member base_url], with a
 ## leading [code]"/"[/code] added when missing — using the client's auth and
 ## JSON headers, and returns the response body parsed but uninterpreted on
-## [member RestResponse.raw_body]. [br]
-## [param method] is an HTTP method name (case-insensitive): [code]"GET"[/code],
-## [code]"HEAD"[/code], [code]"POST"[/code], [code]"PUT"[/code],
-## [code]"DELETE"[/code], [code]"OPTIONS"[/code], or [code]"PATCH"[/code]. [br]
+## [member ApiResponse.body]. [br]
+## [param method] is a [enum Method] value. [br]
 ## [param body] is sent as the JSON request body; leave empty to send no body
 ## (as a GET usually would). [br]
 ## [param query] entries are URL-encoded and appended to the URL as a query
 ## string; leave empty for none. [br]
-## Returns a [RestResponse] with [member RestResponse.ok] set to
+## [param headers] are appended after [member base_headers]; use this for
+## headers specific to a single call. [br]
+## [param timeout_seconds] overrides [member timeout_seconds] for this call;
+## pass [code]-1.0[/code] (the default) to use the node's value, or
+## [code]0.0[/code] to disable the timeout for this specific request. [br]
+## Returns a [ApiResponse] with [member ApiResponse.ok] set to
 ## [code]false[/code] and emits [signal request_failed] on failure — including
 ## when a non-empty 2xx body is not a JSON object. An empty 2xx body (e.g.
-## [code]204 No Content[/code]) succeeds with [member RestResponse.raw_body]
+## [code]204 No Content[/code]) succeeds with [member ApiResponse.body]
 ## set to [code]{}[/code].
 func request(
-	path: String, method: String, body: Dictionary = {}, query: Dictionary = {}
-) -> RestResponse:
-	var res := RestResponse.new()
-	var method_int: int = _HTTP_METHODS.get(method.to_upper(), -1)
-	if method_int == -1:
-		push_error('C3RestClient: Unsupported HTTP method "%s".' % method)
-		res.ok = false
-		res.error = ApiError.client_error(
-			'Unsupported HTTP method "%s".' % method
-		)
-		return res
+	path: String,
+	method: Method,
+	body: Dictionary = {},
+	query: Dictionary = {},
+	headers: PackedStringArray = PackedStringArray(),
+	timeout: float = -1.0
+) -> ApiResponse:
+	var res := ApiResponse.new()
+	var method_int: int = _HTTP_METHODS[method]
 	if not path.begins_with("/"):
 		path = "/" + path
 	var url := base_url + path
 	if not query.is_empty():
 		url += "?" + HTTPClient.new().query_string_from_dict(query)
 	var request_body := "" if body.is_empty() else JSON.stringify(body)
+	var all_headers := PackedStringArray(["Content-Type: application/json"])
+	all_headers.append_array(base_headers)
+	all_headers.append_array(headers)
+	var effective_timeout := timeout if timeout >= 0.0 else timeout_seconds
 	var response := await _http_request(
-		method_int, url, _headers(), request_body
+		method_int, url, all_headers, request_body, effective_timeout
 	)
+	res.headers = response.get("headers", PackedStringArray())
 	if not response["ok"]:
 		res.ok = false
 		res.error = response["error"]
 		request_failed.emit(res.error)
 		return res
+	res.status = response.get("status", 0)
 	var body_str := (response["body"] as PackedByteArray).get_string_from_utf8()
 	# A bodyless 2xx (e.g. 204 from a DELETE) is a success with nothing to parse.
 	if body_str.strip_edges().is_empty():
@@ -98,15 +195,21 @@ func request(
 		)
 		request_failed.emit(res.error)
 		return res
-	res.raw_body = json
+	res.body = json
 	return res
 
 
+# Isolated so tests can override it and avoid real network calls.
 func _http_request(
-	method: int, url: String, headers: PackedStringArray, body: String = ""
+	method: int,
+	url: String,
+	headers: PackedStringArray,
+	body: String = "",
+	timeout: float = 0.0
 ) -> Dictionary:
 	var req := HTTPRequest.new()
 	add_child(req)
+	req.timeout = timeout
 	var err := req.request(url, headers, method, body)
 	if err != OK:
 		req.queue_free()
@@ -126,6 +229,7 @@ func _http_request(
 func _process_http_result(args: Array) -> Dictionary:
 	var result: int = args[0]
 	var status: int = args[1]
+	var resp_headers: PackedStringArray = args[2]
 	var resp_body: PackedByteArray = args[3]
 	if result != HTTPRequest.RESULT_SUCCESS:
 		return {
@@ -134,15 +238,13 @@ func _process_http_result(args: Array) -> Dictionary:
 			ApiError.transport("HTTP transport failed (result %d)." % result)
 		}
 	if status < 200 or status >= 300:
-		return {"ok": false, "error": ApiError.from_response(status, resp_body)}
-	return {"ok": true, "body": resp_body}
+		return {
+			"ok": false,
+			"error": ApiError.from_response(status, resp_body),
+			"headers": resp_headers,
+		}
+	return {"ok": true, "status": status, "headers": resp_headers, "body": resp_body}
 
-
-func _headers() -> PackedStringArray:
-	var headers := PackedStringArray(["Content-Type: application/json"])
-	if not api_key.is_empty():
-		headers.append("Authorization: Bearer " + api_key)
-	return headers
 
 
 ## Structured error placed on the [code]error[/code] field of every response
@@ -237,13 +339,21 @@ class ApiError:
 
 
 ## The response returned by [method request].
-class RestResponse:
+class ApiResponse:
 	## [code]true[/code] if the request succeeded.
 	var ok := true
 	## Populated with error details when [member ok] is [code]false[/code].
 	var error: ApiError = null
+	## HTTP status code of the response, e.g. [code]200[/code],
+	## [code]201[/code], or [code]204[/code]. [code]0[/code] when no HTTP
+	## response was received (transport failure).
+	var status: int = 0
+	## Response headers returned by the server, as
+	## [code]"Name: Value"[/code] strings. Empty when no HTTP response was
+	## received (transport failure).
+	var headers: PackedStringArray = PackedStringArray()
 	## The full parsed response body as a [Dictionary] — [method request] does
 	## not interpret it beyond parsing. Populated whenever the server returned a
 	## JSON object; [code]{}[/code] when the 2xx body was empty (e.g.
 	## [code]204 No Content[/code]) and on transport, HTTP, or non-JSON errors.
-	var raw_body := {}
+	var body := {}

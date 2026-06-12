@@ -2,10 +2,6 @@
 
 Contributions are welcome. Please open an issue before starting significant work so we can discuss the approach first.
 
-## Design Philosophy
-
-This library prioritizes being easy to use over covering every corner of HTTP. It speaks JSON-over-REST and nothing else: bodies in and out are `Dictionary` values, and every failure — transport, non-2xx status, or malformed body — lands in the same place, behind a single `if not response.ok` check. Retries, caching, cookies, middleware, and typed deserialization are deliberately out of scope; callers who need them should build on top.
-
 ## Running Tests
 
 Tests use the [GUT](https://github.com/bitwes/Gut) framework. Run the full suite headlessly:
@@ -35,8 +31,8 @@ When a function signature doesn't fit on one line, indent the parameters one tab
 ```gdscript
 # Short params grouped on one line
 func request(
-	path: String, method: String, body: Dictionary = {}, query: Dictionary = {}
-) -> RestResponse:
+	path: String, method: Method, body: Dictionary = {}, query: Dictionary = {}
+) -> ApiResponse:
 
 # Many params, one per line
 func _on_request_completed(
@@ -52,7 +48,7 @@ The closing paren must never share a line with parameters:
 ```gdscript
 # Avoid
 func request(
-	path: String, method: String, body: Dictionary = {}) -> RestResponse:
+	path: String, method: String, body: Dictionary = {}) -> ApiResponse:
 ```
 
 ### Type Hints
@@ -84,7 +80,7 @@ Awaiting a **signal** also requires an explicit type — GDScript cannot infer t
 var error: C3RestClient.ApiError = await client.request_failed
 
 # Function await — := works
-var result := await client.request("/models", "GET")
+var result := await client.request("/models", C3RestClient.Method.GET)
 ```
 
 ### Comments
@@ -110,7 +106,7 @@ func sync_profile() -> void:
 	# ...
 
 	# Merge local changes
-	var payload := _merge_pending_edits(profile.raw_body)
+	var payload := _merge_pending_edits(profile.body)
 	# ...
 
 	# Upload
