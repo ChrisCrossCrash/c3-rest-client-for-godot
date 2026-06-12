@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cgutf16q3860s"]
 
-[ext_resource type="Script" uid="uid://cmr02l17568gx" path="res://examples/c3_rest_client_demo/c_3_rest_client_demo.gd" id="1_xhyix"]
+[ext_resource type="Script" uid="uid://cmr02l17568gx" path="res://examples/c3_rest_client_demo/c3_rest_client_demo.gd" id="1_xhyix"]
 [ext_resource type="Script" uid="uid://cm0f1gy545fc6" path="res://c3_rest_client/c3_rest_client.gd" id="2_ovrs0"]
 
 [node name="C3RestClientDemo" type="Node" unique_id=899956457]
