@@ -14,15 +14,14 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
-config/name="C3 OpenAI-Compatible Client for Godot"
-config/description="A lightweight, async `Node` that wraps OpenAI-compatible HTTP APIs for use in Godot 4 projects. Works with OpenAI, LM Studio, speaches, and any other server that speaks the OpenAI REST API."
-config/version="v0.2.3"
-run/main_scene="uid://dkpj4irruerkf"
+config/name="C3 REST Client for Godot"
+config/description="A lightweight, async `Node` for talking to JSON REST APIs from Godot 4 projects. Await a request, check `response.ok`, and use the parsed body — no signal wiring or manual status-code handling."
+config/version="v0.1.0"
+run/main_scene="uid://cgutf16q3860s"
 config/features=PackedStringArray("4.6", "Forward Plus")
 
 [audio]
 
-buses/default_bus_layout="uid://bik11eatb1tpy"
 driver/enable_input=true
 
 [editor_plugins]

@@ -1,66 +1,72 @@
-# C3 OpenAI-Compatible Client for Godot
+# C3 REST Client for Godot
 
-A drop-in Godot 4 client node for OpenAI-compatible HTTP APIs. Works with [OpenAI](https://openai.com/api/), [LM Studio](https://lmstudio.ai/), [speaches](https://speaches.ai/), and any other server that speaks the OpenAI REST API. This is a runtime addon for adding AI features to your game, **not** an editor assistant or Copilot-style tool.
+A lightweight, async `Node` for talking to JSON REST APIs from Godot 4 projects. Await a request, check `response.ok`, and use the parsed body — no signal wiring or manual status-code handling.
 
-<img src="./media/banner.jpg" width="100%" alt="GDScript code from the C3 OpenAI Client addon" />
+```gdscript
+var res := await client.request("/todos/1", "GET")
+if res.ok:
+	print(res.raw_body["title"])
+else:
+	push_error("Request failed: " + str(res.error))
+```
 
 ## Features
 
-- Chat completions — non-streaming or streaming (token-by-token via signals)
-- Vision (image input) support
-- `"type": "json_schema"` [structured output](https://developers.openai.com/api/docs/guides/structured-outputs) support
-- Image generation (returns a decoded `Image` in the response object)
-- Text-to-speech (returns a ready-to-play `AudioStream`)
-- Speech-to-text / transcription (`AudioStreamMP3` and `AudioStreamWAV`)
-- List available models
-- `custom_request()` escape hatch for any endpoint the client doesn't cover
-- Every method returns a typed response object — check `.ok` to detect failure
-
-## Design philosophy
-
-This library prioritizes being easy to use over 100% API coverage — it is not trying to be "the OpenAI SDK for Godot" the way the [`openai` library](https://developers.openai.com/api/reference/python) is for Python. For example, the chat completion reply is available as `res.content` rather than `res.choices[0].message.content`.
-
-When you need more than the defaults, every method accepts an `extra_body` dictionary that is merged into the request as-is, and every response carries a `raw_body` with the full server response. So if you do need `choices[0].message.content`, it's right there on `res.raw_body`. And for endpoints the client doesn't cover at all, `custom_request()` sends a request to any path on the server — same auth, same `.ok` pattern — and returns the parsed response on `raw_body`.
+- One `await`-able `request()` method covering `GET`, `HEAD`, `POST`, `PUT`, `DELETE`, `OPTIONS`, and `PATCH`
+- Every call returns a typed response object — a single `if not response.ok` check covers transport failures, non-2xx statuses, and malformed bodies alike
+- Structured `ApiError` values with a `kind` category (`transport`, `http`, `api`, `parse`, `client`, `cancelled`), the HTTP status, and the server's own error message when one is present
+- Bearer-token authentication via a single `api_key` property (omitted entirely when empty)
+- JSON request bodies and URL query strings built from plain `Dictionary` arguments
+- A `request_failed` signal for cross-cutting concerns like global error logging
 
 ## Compatibility
 
-Tested on Godot 4.6.x with automated ([GUT](https://github.com/bitwes/Gut)) and manual tests. Manually verified to work back to Godot 4.0.0.
+Tested on Godot 4.6.x with automated ([GUT](https://github.com/bitwes/Gut)) tests.
 
 ## Installation
 
-To install `C3OpenAIClient` in your Godot project, simply click on the "Asset Store" tab on the top of the Godot editor window and search for "C3 OpenAI-Compatible Client". Then, click "Download" and "Install". The addon will be automatically added to your project, and the `C3OpenAIClient` node will be available in the "Create New Node" dialog.
-
-Alternatively, you may download the latest release from [GitHub](https://github.com/ChrisCrossCrash/c3-openai-client-for-godot/releases) and copy the contents of the `addons/c3_openai_client` folder into your project's `addons/c3_openai_client` directory.
+Download the latest release from GitHub and copy the `addons/c3_rest_client-<version>` folder into your project's `addons/` directory. The `C3RestClient` node will then be available in the "Create New Node" dialog.
 
 ## Quick start
 
-1. In your scene, choose **Add Child Node** and search for `C3OpenAIClient`.
-2. Set **Base URL** in the Inspector (e.g. `https://api.openai.com/v1`).
+1. In your scene, choose **Add Child Node** and search for `C3RestClient`.
+2. Set **Base URL** in the Inspector (e.g. `https://api.example.com/v1`).
 3. Reference it from your scene script:
 
-    ```gdscript
-    @onready var client: C3OpenAIClient = $C3OpenAIClient
+	```gdscript
+	@onready var client: C3RestClient = $C3RestClient
 
-    func _ready() -> void:
-        # Get the API key from an environment variable and set it on the client.
-		# You can skip this step for servers that don't require authentication.
-		client.api_key = OS.get_environment("OPENAI_API_KEY")
+	func _ready() -> void:
+		# Set an API key for servers that require authentication. When set, it is
+		# sent as a Bearer token in the Authorization header of every request.
+		client.api_key = OS.get_environment("EXAMPLE_API_KEY")
 
-		var messages := [
-			C3OpenAIClient.make_system_msg("You are a poor villager."),
-			C3OpenAIClient.make_user_msg("En garde!"),
-		]
-		var opts := C3OpenAIClient.ChatOptions.new()
-		opts.model = "gpt-5.4-mini"
+		# GET with a query string: GET /search?q=godot&limit=5
+		var res := await client.request("/search", "GET", {}, {"q": "godot", "limit": 5})
+		if not res.ok:
+			push_error("Search failed: " + str(res.error))
+			return
+		print(res.raw_body["results"])
 
-		var res := await client.chat_completion(messages, opts)
-		if res.ok:
-			print(res.content)  # *Gasps sharply, dropping my basket of half-rotten turnips...
-		else:
-			push_error("Chat failed: " + str(res.error))
+		# POST with a JSON body.
+		var created := await client.request("/todos", "POST", {"title": "Buy milk"})
+		if created.ok:
+			print("Created todo %s" % created.raw_body["id"])
 	```
 
-## Examples
+## Error handling
 
-- [`examples/openai_client_demo/openai_client_demo.gd`](examples/openai_client_demo/openai_client_demo.gd) — complete walkthrough covering model listing, chat (non-streaming and streaming), vision, structured output, image generation, text-to-speech, speech-to-text, and custom requests
-- [`examples/voice_chat_demo/voice_chat_demo.gd`](examples/voice_chat_demo/voice_chat_demo.gd) — real-time voice chat using microphone input, speech-to-text, chat, and text-to-speech
+When `res.ok` is `false`, `res.error` is an `ApiError` describing what went wrong. Its `kind` field categorizes the failure:
+
+| `kind`         | Meaning                                                                                                                                              |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `&"transport"` | No usable HTTP response (DNS, connection, TLS, or the request could not start)                                                                       |
+| `&"http"`      | A non-2xx status with no parseable API error body                                                                                                    |
+| `&"api"`       | The server returned a structured error body — `message`, `code`, and `type` are pulled from a conventional `{"error": {...}}` JSON body when present |
+| `&"parse"`     | A 2xx body that could not be parsed as a JSON object                                                                                                 |
+| `&"client"`    | The request was rejected before being sent (e.g. an unsupported HTTP method)                                                                         |
+| `&"cancelled"` | The caller aborted the request                                                                                                                       |
+
+Every `ApiError` carries a human-readable `message`, the HTTP `status` (or `0` when not applicable), and the raw response body on `raw` for debugging. `str(error)` produces a compact one-line summary suitable for logs.
+
+An empty 2xx body (e.g. `204 No Content` from a `DELETE`) is a success with `raw_body` set to `{}`.

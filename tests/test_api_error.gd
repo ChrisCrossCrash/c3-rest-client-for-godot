@@ -1,9 +1,9 @@
 extends GutTest
 
 
-## Unit tests for the [C3OpenAIClient.ApiError] value type and its factories.
+## Unit tests for the [C3RestClient.ApiError] value type and its factories.
 class TestApiError extends GutTest:
-	const ApiError := C3OpenAIClient.ApiError
+	const ApiError := C3RestClient.ApiError
 
 	## A JSON-encoded OpenAI-style error body.
 	func error_body(
@@ -33,9 +33,9 @@ class TestApiError extends GutTest:
 		assert_eq(e.message, "Stream cancelled.")
 
 	func test_client_error_factory() -> void:
-		var e := ApiError.client_error("Unsupported AudioStream type.")
+		var e := ApiError.client_error('Unsupported HTTP method "FETCH".')
 		assert_eq(e.kind, &"client")
-		assert_eq(e.message, "Unsupported AudioStream type.")
+		assert_eq(e.message, 'Unsupported HTTP method "FETCH".')
 
 	func test_from_response_parses_api_error_body() -> void:
 		var e := ApiError.from_response(401, error_body())
@@ -88,10 +88,10 @@ class TestApiError extends GutTest:
 
 ## Tests for the shared transport classifier used by every endpoint.
 class TestProcessHttpResult extends GutTest:
-	var client: C3OpenAIClient
+	var client: C3RestClient
 
 	func before_each() -> void:
-		client = C3OpenAIClient.new()
+		client = C3RestClient.new()
 		add_child_autofree(client)
 
 	## Builds an HTTPRequest.request_completed argument array:

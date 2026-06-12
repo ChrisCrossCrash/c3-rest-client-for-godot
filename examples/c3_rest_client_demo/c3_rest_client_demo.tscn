@@ -1,0 +1,12 @@
+[gd_scene format=3 uid="uid://cgutf16q3860s"]
+
+[ext_resource type="Script" uid="uid://cmr02l17568gx" path="res://examples/c3_rest_client_demo/c_3_rest_client_demo.gd" id="1_xhyix"]
+[ext_resource type="Script" uid="uid://cm0f1gy545fc6" path="res://c3_rest_client/c3_rest_client.gd" id="2_ovrs0"]
+
+[node name="C3RestClientDemo" type="Node" unique_id=899956457]
+script = ExtResource("1_xhyix")
+
+[node name="C3RestClient" type="Node" parent="." unique_id=816714342]
+script = ExtResource("2_ovrs0")
+base_url = "https://jsonplaceholder.typicode.com"
+metadata/_custom_type_script = "uid://cm0f1gy545fc6"

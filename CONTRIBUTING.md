@@ -4,7 +4,7 @@ Contributions are welcome. Please open an issue before starting significant work
 
 ## Design Philosophy
 
-See the [README](README.md#design-philosophy) for the general philosophy.
+This library prioritizes being easy to use over covering every corner of HTTP. It speaks JSON-over-REST and nothing else: bodies in and out are `Dictionary` values, and every failure — transport, non-2xx status, or malformed body — lands in the same place, behind a single `if not response.ok` check. Retries, caching, cookies, middleware, and typed deserialization are deliberately out of scope; callers who need them should build on top.
 
 ## Running Tests
 
@@ -14,9 +14,9 @@ Tests use the [GUT](https://github.com/bitwes/Gut) framework. Run the full suite
 godot --headless --path . -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit
 ```
 
-To run a single test file, add `-gtest=res://tests/test_chat_completion.gd` (swap in the desired file).
+To run a single test file, add `-gtest=res://tests/test_request.gd` (swap in the desired file).
 
-All tests must pass before a pull request is approved. No real HTTP calls are made — the test suite uses `TestableClient` and `FakeSSERequest` from `tests/c3_test_doubles.gd` to drive all network behavior in-process.
+All tests must pass before a pull request is approved. No real HTTP calls are made — the test suite uses `TestableClient` from `tests/c3_test_doubles.gd` to drive all network behavior in-process.
 
 ## Code Style
 
@@ -33,10 +33,10 @@ Aim for a soft maximum of **80 characters** per line. Exceeding it occasionally 
 When a function signature doesn't fit on one line, indent the parameters one tab and place the closing `) -> ReturnType:` on its own line at zero indent (same level as `func`). Parameters may be grouped on one line or split one-per-line — use whichever is clearer:
 
 ```gdscript
-# Two short params grouped on one line
-func chat_completion(
-	messages: Array, opts: ChatOptions = null
-) -> ChatCompletionResponse:
+# Short params grouped on one line
+func request(
+	path: String, method: String, body: Dictionary = {}, query: Dictionary = {}
+) -> RestResponse:
 
 # Many params, one per line
 func _on_request_completed(
@@ -51,8 +51,8 @@ The closing paren must never share a line with parameters:
 
 ```gdscript
 # Avoid
-func chat_completion(
-	messages: Array, opts: ChatOptions = null) -> ChatCompletionResponse:
+func request(
+	path: String, method: String, body: Dictionary = {}) -> RestResponse:
 ```
 
 ### Type Hints
@@ -81,10 +81,10 @@ Awaiting a **signal** also requires an explicit type — GDScript cannot infer t
 
 ```gdscript
 # Signal await — explicit type required
-var result: ChatCompletionResponse = await stream.finished
+var error: C3RestClient.ApiError = await client.request_failed
 
 # Function await — := works
-var result := await client.chat_completion(messages)
+var result := await client.request("/models", "GET")
 ```
 
 ### Comments
@@ -104,18 +104,18 @@ speed = 5.0
 Brief section labels that divide a long function into logical stages are fine when they genuinely help a reader navigate:
 
 ```gdscript
-func stop_recording() -> void:
-    # STT processing
-    var transcription := await client.create_transcription(...)
-    # ...
+func sync_profile() -> void:
+	# Fetch
+	var profile := await client.request("/profile", "GET")
+	# ...
 
-    # LLM processing
-    var completion := await client.chat_completion(_messages)
-    # ...
+	# Merge local changes
+	var payload := _merge_pending_edits(profile.raw_body)
+	# ...
 
-    # TTS processing
-    var speech := await client.create_speech(completion.content, ...)
-    # ...
+	# Upload
+	var saved := await client.request("/profile", "PUT", payload)
+	# ...
 ```
 
 Use `##` documentation comments to surface information as a tooltip in the editor — on a class, an exported variable, or any public method where the name and signature alone don't tell the full story. `##` comments are rendered by Godot's editor and support BBCode. For private methods whose purpose isn't immediately apparent, use the same documentation style with `#` instead — single-hash comments are invisible to auto-generated documentation. Plain `#` comments should use prose, not BBCode.

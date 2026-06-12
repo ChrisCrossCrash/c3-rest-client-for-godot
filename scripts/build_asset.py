@@ -6,17 +6,17 @@ import zipfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
-ASSET_DIR = REPO_ROOT / "c3_openai_client"
+ASSET_DIR = REPO_ROOT / "c3_rest_client"
 LICENSE_FILE = REPO_ROOT / "LICENSE.md"
 OUTPUT_DIR = REPO_ROOT / "build"
 
 
 def build(version: str):
-    output_zip = OUTPUT_DIR / f"c3_openai_client_{version}.zip"
+    output_zip = OUTPUT_DIR / f"c3_rest_client_{version}.zip"
     OUTPUT_DIR.mkdir(exist_ok=True)
 
     with zipfile.ZipFile(output_zip, "w", zipfile.ZIP_DEFLATED) as zf:
-        target_dir = Path(f"addons/c3_openai_client-{version}")
+        target_dir = Path(f"addons/c3_rest_client-{version}")
         for file in sorted(ASSET_DIR.rglob("*")):
             if file.is_file():
                 zf.write(file, target_dir / file.relative_to(ASSET_DIR))

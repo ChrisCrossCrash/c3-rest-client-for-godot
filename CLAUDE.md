@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-C3 OpenAI Client for Godot is a Godot 4 addon providing an async `Node` wrapper for OpenAI-compatible HTTP APIs. It supports chat completions (streaming and non-streaming), vision, image generation, TTS, STT, and model listing. Compatible with OpenAI, LM Studio, speaches, and any OpenAI-compatible server.
+C3 REST Client for Godot is a Godot 4 addon providing an async `Node` for talking to JSON REST APIs. Callers `await client.request(...)` and check `response.ok` — a single check that covers transport failures, non-2xx statuses, and malformed bodies alike. Deliberately out of scope: retries, caching, cookies, middleware, and typed deserialization.
 
 ## Commands
 
@@ -15,41 +15,35 @@ godot --headless --path . -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude
 
 **Run a single test file:**
 ```
-godot --headless --path . -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit -gtest=res://tests/test_chat_completion.gd
+godot --headless --path . -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit -gtest=res://tests/test_request.gd
 ```
 
-Tests require Godot 4.6+ on `$PATH`. CI runs on ubuntu-latest with Godot 4.6.2-stable via `.github/workflows/tests.yml`.
+If GUT reports "does not extend GutTest" or "Nothing was run" after files or classes have been renamed, the global script class cache is stale — rebuild it first with `godot --headless --path . --import`.
+
+Tests require Godot 4.6+ on `$PATH`. CI runs on ubuntu-latest with Godot 4.6.2-stable via `.github/workflows/tests.yml` (which runs the `--import` step before GUT).
 
 **Build asset for distribution:**
 ```
-python scripts/build_asset.py
+python scripts/build_asset.py <version>
 ```
 
 ## Architecture
 
-The addon lives entirely in [c3_openai_client/](c3_openai_client/).
+The addon is a single script: [c3_rest_client/c3_rest_client.gd](c3_rest_client/c3_rest_client.gd).
 
-**`C3OpenAIClient`** ([c3_openai_client/c3_openai_client.gd](c3_openai_client/c3_openai_client.gd)) — The main class. Extends `Node`, marked `@tool`. Callers instantiate it as a node and `await` its async methods. All public API is here:
-- `get_models()` → `ModelsResponse`
-- `chat_completion(messages, opts)` → `ChatCompletionResponse`
-- `chat_completion_stream(messages, opts)` → `ChatStream` (SSE-backed, emits `delta` signal per token)
-- `create_image(prompt, opts)` → `ImageGenerationResponse` (decodes base64 into `image`; raw entry kept on `data`. `ImageOptions.response_format` defaults to `"auto"`: `b64_json` for dall-e models, omitted otherwise)
-- `image_from_base64(b64)` → `Image` (static helper; decodes PNG/JPEG/WebP from a `b64_json` value)
-- `download_image(url)` → `Image` (async helper; downloads a `url` entry and decodes it)
-- `create_speech(input, opts)` → `SpeechResponse`
-- `create_transcription(audio, opts)` → `TranscriptionResponse`
-- `custom_request(path, method, body, query)` → `CustomRequestResponse` (escape hatch for endpoints the client doesn't cover; parsed JSON object on `raw_body`, empty 2xx body succeeds, non-object JSON is a parse failure)
+**`C3RestClient`** — Extends `Node`, marked `@tool`. Public surface:
+- `base_url` (`@export`) — prefix for every request path, including any API version prefix
+- `api_key` — when non-empty, sent as a Bearer token in the `Authorization` header; empty omits the header entirely
+- `request(path, method, body, query)` → `RestResponse` — the one async entry point. `method` is a case-insensitive HTTP method name (`GET`, `HEAD`, `POST`, `PUT`, `DELETE`, `OPTIONS`, `PATCH`); `body` is JSON-encoded; `query` is URL-encoded. An empty 2xx body succeeds with `raw_body == {}`; a non-empty 2xx body that isn't a JSON object is a parse failure.
+- `request_failed(error)` signal — secondary broadcast for cross-cutting concerns (e.g. global error logging); `response.ok` is the primary failure channel
 
-**`C3SSERequest`** ([c3_openai_client/utils/c3_sse_request.gd](c3_openai_client/utils/c3_sse_request.gd)) — Custom SSE implementation built on `StreamPeerTCP` + `StreamPeerTLS`. Godot's `HTTPRequest` doesn't support streaming, so this class handles raw TCP/TLS connection, HTTP request formatting, chunked transfer decoding, and SSE event parsing. Emits signals: `event_received`, `finished`, `response_error`, `request_failed`.
+**Inner classes:**
+- `RestResponse` — `ok: bool`, `error: ApiError`, `raw_body: Dictionary` (parsed but uninterpreted)
+- `ApiError` — typed errors with `kind` string: `&"transport"`, `&"http"`, `&"api"`, `&"parse"`, `&"client"`, `&"cancelled"`. `from_response()` pulls `message`/`code`/`type` from a conventional `{"error": {...}}` JSON body when present.
 
-**Response/options types** are inner classes defined in `c3_openai_client.gd`:
-- `ChatOptions`, `ImageOptions`, `SpeechOptions`, `TranscriptionOptions` — input option bags
-- `ChatCompletionResponse`, `ImageGenerationResponse`, `SpeechResponse`, `TranscriptionResponse`, `ModelsResponse`, `CustomRequestResponse` — all carry `ok: bool` and optional `error: ApiError`
-- `ApiError` — typed errors with `kind` string: `"transport"`, `"http"`, `"api"`, `"parse"`, `"client"`, `"cancelled"`
+**Transport** is Godot's `HTTPRequest`, created per call as a child node in `_http_request()` and mapped to a shared `{"ok", "body"/"error"}` shape by `_process_http_result()`.
 
-**Tests** are in [tests/](tests/) using the GUT framework (in [addons/gut/](addons/gut/)). Test doubles live in [tests/c3_test_doubles.gd](tests/c3_test_doubles.gd) — `TestableClient` exposes internals for unit testing and `FakeSSERequest` stubs streaming.
-
-**Examples** in [examples/](examples/) demonstrate usage patterns but are not part of the addon itself.
+**Tests** are in [tests/](tests/) using the GUT framework (in [addons/gut/](addons/gut/)). `TestableClient` in [tests/c3_test_doubles.gd](tests/c3_test_doubles.gd) overrides `_http_request()` so no real HTTP calls are made.
 
 ## GDScript Style Guide
 
