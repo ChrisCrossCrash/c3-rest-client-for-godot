@@ -35,6 +35,11 @@ const _HTTP_METHODS: Dictionary = {
 ## The base URL that every [method request] path is appended to, including any
 ## API version prefix — for example [code]"https://api.example.com/v1"[/code].
 @export var base_url := ""
+## Maximum seconds to wait for a response. [code]0.0[/code] disables the
+## timeout (the default — waits indefinitely). Override per-call with the
+## [param timeout_seconds] argument of [method request].
+@export var timeout_seconds: float = 0.0
+
 ## Headers sent on every request, merged before any per-request headers passed
 ## to [method request]. Use this for node-level concerns such as authentication:
 ## [codeblock]
@@ -43,10 +48,6 @@ const _HTTP_METHODS: Dictionary = {
 ## ])
 ## [/codeblock]
 var base_headers: PackedStringArray = PackedStringArray()
-## Maximum seconds to wait for a response. [code]0.0[/code] disables the
-## timeout (the default — waits indefinitely). Override per-call with the
-## [param timeout_seconds] argument of [method request].
-@export var timeout_seconds: float = 0.0
 
 
 ## Sends a [code]GET[/code] request to [param path].
