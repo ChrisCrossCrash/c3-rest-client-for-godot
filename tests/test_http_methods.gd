@@ -54,7 +54,7 @@ class TestHttpMethods extends GutTest:
 	func test_post_passes_query() -> void:
 		client.base_url = "http://example.com"
 		await client.http_post("/completions", {}, {"stream": "true"})
-		assert_true(client.request_log[0]["url"].contains("?stream=true"))
+		assert_true(client.request_log[0]["url"].ends_with("?stream=true"))
 
 	func test_put_sends_put() -> void:
 		await client.http_put("/config/x")
@@ -75,20 +75,17 @@ class TestHttpMethods extends GutTest:
 		assert_eq(sent, {"key": "val"})
 
 	func test_delete_sends_delete() -> void:
-		client.preset_response = {"ok": true, "body": PackedByteArray()}
 		await client.http_delete("/models/x")
 		assert_eq(client.request_log[0]["method"], "DELETE")
 
 	func test_delete_sends_no_body() -> void:
-		client.preset_response = {"ok": true, "body": PackedByteArray()}
 		await client.http_delete("/models/x")
 		assert_eq(client.request_log[0]["body"], "")
 
 	func test_delete_passes_query() -> void:
 		client.base_url = "http://example.com"
-		client.preset_response = {"ok": true, "body": PackedByteArray()}
 		await client.http_delete("/models/x", {"confirm": "true"})
-		assert_true(client.request_log[0]["url"].contains("?confirm=true"))
+		assert_true(client.request_log[0]["url"].ends_with("?confirm=true"))
 
 	func test_options_sends_options() -> void:
 		await client.http_options("/models")

@@ -89,7 +89,7 @@ class TestRequest extends GutTest:
 		assert_true(headers.has("Authorization: Bearer secret"))
 		assert_true(headers.has("X-Custom: value"))
 
-	func test_empty_base_headers_omits_extra_headers() -> void:
+	func test_content_type_always_included() -> void:
 		client.base_headers = PackedStringArray()
 		await client.request("/embeddings", C3RestClient.Method.POST)
 		var headers: PackedStringArray = client.request_log[0]["headers"]

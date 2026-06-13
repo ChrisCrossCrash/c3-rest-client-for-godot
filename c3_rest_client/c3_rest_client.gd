@@ -41,14 +41,16 @@ const _HTTP_METHODS: Dictionary = {
 ## [method http_get]).
 @export var timeout_seconds: float = 0.0
 
-## Headers sent on every request, merged before any per-request headers passed
-## to [method request]. Use this for node-level concerns such as authentication:
+## Headers sent on every request, merged after the implicit
+## [code]Content-Type: application/json[/code] and before any per-request
+## headers passed to [method request]. Use this for node-level concerns such as
+## authentication:
 ## [codeblock]
 ## client.base_headers = PackedStringArray([
 ##     "Authorization: Bearer " + OS.get_environment("MY_API_KEY"),
 ## ])
 ## [/codeblock]
-var base_headers: PackedStringArray = PackedStringArray()
+@export var base_headers := PackedStringArray()
 
 
 ## Sends a [code]GET[/code] request to [param path].
@@ -141,7 +143,9 @@ func http_options(
 ## [param query] entries are URL-encoded and appended to the URL as a query
 ## string; leave empty for none. [br]
 ## [param headers] are appended after [member base_headers]; use this for
-## headers specific to a single call. [br]
+## headers specific to a single call. Every request always includes
+## [code]Content-Type: application/json[/code] regardless of what is passed
+## here. [br]
 ## [param timeout] overrides the client node's [member timeout_seconds]
 ## for this call; pass [code]-1.0[/code] (the default) to use the node's value,
 ## or [code]0.0[/code] to disable the timeout for this specific request. [br]
@@ -218,6 +222,8 @@ func _process_http_result(args: Array) -> Dictionary:
 	var status: int = args[1]
 	var resp_headers: PackedStringArray = args[2]
 	var resp_body: PackedByteArray = args[3]
+	if result == HTTPRequest.RESULT_TIMEOUT:
+		return {"ok": false, "error": ApiError.timed_out("Request timed out.")}
 	if result != HTTPRequest.RESULT_SUCCESS:
 		return {
 			"ok": false,
@@ -264,6 +270,8 @@ class ApiError:
 		CLIENT,
 		## The caller aborted the request.
 		CANCELLED,
+		## No response was received before the timeout elapsed.
+		TIMEOUT,
 	}
 	## Broad category of failure. One of the [enum Kind] values.
 	var kind: Kind = Kind.TRANSPORT
@@ -288,6 +296,14 @@ class ApiError:
 	static func cancelled(p_message: String) -> ApiError:
 		var e := ApiError.new()
 		e.kind = Kind.CANCELLED
+		e.message = p_message
+		return e
+
+	## Builds an error for a request that received no response before the
+	## timeout elapsed.
+	static func timed_out(p_message: String) -> ApiError:
+		var e := ApiError.new()
+		e.kind = Kind.TIMEOUT
 		e.message = p_message
 		return e
 

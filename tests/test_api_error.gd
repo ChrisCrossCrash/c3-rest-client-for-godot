@@ -26,6 +26,11 @@ class TestApiError extends GutTest:
 		assert_eq(e.kind, ApiError.Kind.CANCELLED)
 		assert_eq(e.message, "Stream cancelled.")
 
+	func test_timed_out_factory() -> void:
+		var e := ApiError.timed_out("Request timed out.")
+		assert_eq(e.kind, ApiError.Kind.TIMEOUT)
+		assert_eq(e.message, "Request timed out.")
+
 	func test_client_error_factory() -> void:
 		var e := ApiError.client_error('Unsupported HTTP method "FETCH".')
 		assert_eq(e.kind, ApiError.Kind.CLIENT)
@@ -102,6 +107,13 @@ class TestProcessHttpResult extends GutTest:
 		)
 		assert_false(res["ok"])
 		assert_eq(res["error"].kind, C3RestClient.ApiError.Kind.TRANSPORT)
+
+	func test_timeout_result_is_timeout_error() -> void:
+		var res := client._process_http_result(
+			args(HTTPRequest.RESULT_TIMEOUT, 0, PackedByteArray())
+		)
+		assert_false(res["ok"])
+		assert_eq(res["error"].kind, C3RestClient.ApiError.Kind.TIMEOUT)
 
 	func test_non_2xx_with_error_body_is_api_error() -> void:
 		var body := JSON.stringify(
