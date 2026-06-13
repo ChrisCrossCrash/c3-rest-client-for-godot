@@ -141,7 +141,7 @@ func http_options(
 ## string; leave empty for none. [br]
 ## [param headers] are appended after [member base_headers]; use this for
 ## headers specific to a single call. [br]
-## [param timeout_seconds] overrides [member timeout_seconds] for this call;
+## [param timeout] overrides [member timeout_seconds] for this call;
 ## pass [code]-1.0[/code] (the default) to use the node's value, or
 ## [code]0.0[/code] to disable the timeout for this specific request. [br]
 ## Returns a [ApiResponse] with [member ApiResponse.ok] set to
