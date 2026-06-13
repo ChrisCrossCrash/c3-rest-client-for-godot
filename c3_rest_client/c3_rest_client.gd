@@ -37,7 +37,8 @@ const _HTTP_METHODS: Dictionary = {
 @export var base_url := ""
 ## Maximum seconds to wait for a response. [code]0.0[/code] disables the
 ## timeout (the default — waits indefinitely). Override per-call with the
-## [param timeout_seconds] argument of [method request].
+## [param timeout] argument of any request method (e.g. [method request],
+## [method http_get]).
 @export var timeout_seconds: float = 0.0
 
 ## Headers sent on every request, merged before any per-request headers passed
@@ -141,9 +142,9 @@ func http_options(
 ## string; leave empty for none. [br]
 ## [param headers] are appended after [member base_headers]; use this for
 ## headers specific to a single call. [br]
-## [param timeout] overrides [member timeout_seconds] for this call;
-## pass [code]-1.0[/code] (the default) to use the node's value, or
-## [code]0.0[/code] to disable the timeout for this specific request. [br]
+## [param timeout] overrides the client node's [member timeout_seconds]
+## for this call; pass [code]-1.0[/code] (the default) to use the node's value,
+## or [code]0.0[/code] to disable the timeout for this specific request. [br]
 ## Returns a [ApiResponse] with [member ApiResponse.ok] set to
 ## [code]false[/code] and emits [signal request_failed] when no response was
 ## received or the status was not 2xx. Body content never affects
