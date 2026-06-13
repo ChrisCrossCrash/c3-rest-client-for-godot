@@ -213,7 +213,7 @@ class TestRequest extends GutTest:
 		}
 		var result := await client.request("/embeddings", C3RestClient.Method.POST)
 		assert_false(result.ok)
-		assert_eq(result.error.kind, &"transport")
+		assert_eq(result.error.kind, C3RestClient.ApiError.Kind.TRANSPORT)
 
 	func test_emits_request_failed_on_network_error() -> void:
 		client.preset_response = {

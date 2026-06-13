@@ -249,15 +249,22 @@ static func _parse_json(body_str: String) -> Variant:
 ## object when [code]ok[/code] is [code]false[/code], and carried by
 ## [signal request_failed].
 class ApiError:
-	## Broad category of failure:[br]
-	## [code]&"transport"[/code] — no usable HTTP response (DNS, connection, TLS,
-	## or the request could not be started).[br]
-	## [code]&"http"[/code] — a non-2xx status with no parseable API error body.[br]
-	## [code]&"api"[/code] — the server returned a structured error body.[br]
-	## [code]&"client"[/code] — the request was rejected before being sent (e.g.
-	## an invalid argument).[br]
-	## [code]&"cancelled"[/code] — the caller aborted the request.
-	var kind := &""
+	## Broad category of failure.
+	enum Kind {
+		## No usable HTTP response (DNS, connection, TLS, or the request could
+		## not be started).
+		TRANSPORT,
+		## A non-2xx status with no parseable API error body.
+		HTTP,
+		## The server returned a structured error body.
+		API,
+		## The request was rejected before being sent (e.g. an invalid argument).
+		CLIENT,
+		## The caller aborted the request.
+		CANCELLED,
+	}
+	## Broad category of failure. One of the [enum Kind] values.
+	var kind: Kind = Kind.TRANSPORT
 	## Human-readable description. Never empty.
 	var message := ""
 	## HTTP status code, or [code]0[/code] when not applicable.
@@ -271,21 +278,21 @@ class ApiError:
 	## Builds an error for a transport-level failure with no usable HTTP response.
 	static func transport(p_message: String) -> ApiError:
 		var e := ApiError.new()
-		e.kind = &"transport"
+		e.kind = Kind.TRANSPORT
 		e.message = p_message
 		return e
 
 	## Builds an error for a caller-initiated cancellation.
 	static func cancelled(p_message: String) -> ApiError:
 		var e := ApiError.new()
-		e.kind = &"cancelled"
+		e.kind = Kind.CANCELLED
 		e.message = p_message
 		return e
 
 	## Builds an error for a request rejected before being sent (bad argument).
 	static func client_error(p_message: String) -> ApiError:
 		var e := ApiError.new()
-		e.kind = &"client"
+		e.kind = Kind.CLIENT
 		e.message = p_message
 		return e
 
@@ -295,7 +302,7 @@ class ApiError:
 	## a generic HTTP-status message otherwise.
 	static func from_response(p_status: int, body: PackedByteArray) -> ApiError:
 		var e := ApiError.new()
-		e.kind = &"http"
+		e.kind = Kind.HTTP
 		e.status = p_status
 		e.message = "Request failed with status %d." % p_status
 		var parser := JSON.new()
@@ -304,7 +311,7 @@ class ApiError:
 			var api_err: Variant = (parser.get_data() as Dictionary).get("error")
 			if api_err is Dictionary:
 				var d: Dictionary = api_err
-				e.kind = &"api"
+				e.kind = Kind.API
 				if d.get("message") is String:
 					e.message = d["message"]
 				if d.get("code") is String:
@@ -314,7 +321,8 @@ class ApiError:
 		return e
 
 	func _to_string() -> String:
-		var parts := PackedStringArray(["[%s]" % kind])
+		var kind_name: String = Kind.find_key(kind)
+		var parts := PackedStringArray(["[%s]" % kind_name.to_lower()])
 		if status != 0:
 			parts.append("status=%d" % status)
 		if not code.is_empty():

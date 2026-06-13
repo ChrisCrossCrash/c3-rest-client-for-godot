@@ -15,7 +15,7 @@ else:
 - One `await`-able `request()` method covering `GET`, `HEAD`, `POST`, `PUT`, `DELETE`, `OPTIONS`, and `PATCH`
 - Every call returns a typed response object — a single `if not response.ok` check covers transport failures and non-2xx statuses alike
 - The body is always available raw on `response.body` and best-effort parsed on `response.json` — on errors too, since REST APIs conventionally return JSON-encoded error details
-- Structured `ApiError` values with a `kind` category (`transport`, `http`, `api`, `client`, `cancelled`), the HTTP status, and the server's own error message when one is present
+- Structured `ApiError` values with a `kind` category (`ApiError.Kind.TRANSPORT`, `HTTP`, `API`, `CLIENT`, `CANCELLED`), the HTTP status, and the server's own error message when one is present
 - Node-level `base_headers` for authentication and other standing headers (merged before per-request headers on every call)
 - JSON request bodies and URL query strings built from plain `Dictionary` arguments
 - A `request_failed` signal for cross-cutting concerns like global error logging
@@ -76,12 +76,12 @@ if res.ok and res.json is Dictionary:
 
 When `res.ok` is `false`, `res.error` is an `ApiError` describing what went wrong. Its `kind` field categorizes the failure:
 
-| `kind`         | Meaning                                                                                                                                              |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `&"transport"` | No usable HTTP response (DNS, connection, TLS, or the request could not start)                                                                       |
-| `&"http"`      | A non-2xx status with no parseable API error body                                                                                                    |
-| `&"api"`       | The server returned a structured error body — `message`, `code`, and `type` are pulled from a conventional `{"error": {...}}` JSON body when present |
-| `&"client"`    | The request was rejected before being sent (e.g. an unsupported HTTP method)                                                                         |
-| `&"cancelled"` | The caller aborted the request                                                                                                                       |
+| `kind`                   | Meaning                                                                                                                                              |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ApiError.Kind.TRANSPORT` | No usable HTTP response (DNS, connection, TLS, or the request could not start)                                                                      |
+| `ApiError.Kind.HTTP`      | A non-2xx status with no parseable API error body                                                                                                   |
+| `ApiError.Kind.API`       | The server returned a structured error body — `message`, `code`, and `type` are pulled from a conventional `{"error": {...}}` JSON body when present |
+| `ApiError.Kind.CLIENT`    | The request was rejected before being sent (e.g. an unsupported HTTP method)                                                                        |
+| `ApiError.Kind.CANCELLED` | The caller aborted the request                                                                                                                      |
 
 Every `ApiError` carries a human-readable `message` and the HTTP `status` (or `0` when not applicable). `str(error)` produces a compact one-line summary suitable for logs. On failures the full error body remains available on the response itself — raw on `res.body` and parsed on `res.json` — so nothing the server said is lost.
