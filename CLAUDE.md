@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-C3 REST Client for Godot is a Godot 4 addon providing an async `Node` for talking to JSON REST APIs. Callers `await client.request(...)` and check `response.ok` — a single check that covers transport failures, non-2xx statuses, and malformed bodies alike. Deliberately out of scope: retries, caching, cookies, middleware, and typed deserialization.
+C3 REST Client for Godot is a Godot 4 addon providing an async `Node` for talking to JSON REST APIs. Callers `await client.request(...)` and check `response.ok` — a single check that covers transport failures and non-2xx statuses alike. `ok` reflects only the HTTP exchange; body content never affects it. Deliberately out of scope: retries, caching, cookies, middleware, and typed deserialization.
 
 ## Commands
 
@@ -34,13 +34,13 @@ The addon is a single script: [c3_rest_client/c3_rest_client.gd](c3_rest_client/
 **`C3RestClient`** — Extends `Node`, marked `@tool`. Public surface:
 - `base_url` (`@export`) — prefix for every request path, including any API version prefix
 - `base_headers` (`PackedStringArray`) — node-level headers merged into every request before per-request headers; use for auth and other standing concerns
-- `request(path, method, body, query, headers, timeout)` → `ApiResponse` — the one async entry point. `method` is a `Method` enum value; `body` is JSON-encoded; `query` is URL-encoded; `headers` (`PackedStringArray`) are appended after `base_headers`; `timeout` (`float`, default `-1.0`) overrides `timeout_seconds` for this call (`0.0` disables, negative inherits node default). An empty 2xx body succeeds with `body == {}`; a non-empty 2xx body that isn't a JSON object is a parse failure.
+- `request(path, method, body, query, headers, timeout)` → `ApiResponse` — the one async entry point. `method` is a `Method` enum value; `body` is JSON-encoded; `query` is URL-encoded; `headers` (`PackedStringArray`) are appended after `base_headers`; `timeout` (`float`, default `-1.0`) overrides `timeout_seconds` for this call (`0.0` disables, negative inherits node default). The response body is delivered raw on `ApiResponse.body` and best-effort parsed on `ApiResponse.json` — on success and failure both; a 2xx with a non-JSON body succeeds with `json == null`.
 - `request_failed(error)` signal — secondary broadcast for cross-cutting concerns (e.g. global error logging); `response.ok` is the primary failure channel
 
 **Inner classes:**
 - `Method` enum — `GET`, `HEAD`, `POST`, `PUT`, `DELETE`, `OPTIONS`, `PATCH`
-- `ApiResponse` — `ok: bool`, `error: ApiError`, `body: Dictionary` (parsed but uninterpreted)
-- `ApiError` — typed errors with `kind` string: `&"transport"`, `&"http"`, `&"api"`, `&"parse"`, `&"client"`, `&"cancelled"`. `from_response()` pulls `message`/`code`/`type` from a conventional `{"error": {...}}` JSON body when present.
+- `ApiResponse` — `ok: bool`, `error: ApiError`, `status: int`, `headers: PackedStringArray`, `body: String` (raw UTF-8), `json: Variant` (whatever the body parsed to when it was valid JSON, else `null`)
+- `ApiError` — typed errors with `kind` string: `&"transport"`, `&"http"`, `&"api"`, `&"client"`, `&"cancelled"`. `from_response()` pulls `message`/`code`/`type` from a conventional `{"error": {...}}` JSON body when present.
 
 **Transport** is Godot's `HTTPRequest`, created per call as a child node in `_http_request()` and mapped to a shared `{"ok", "body"/"error"}` shape by `_process_http_result()`.
 

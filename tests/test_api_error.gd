@@ -21,12 +21,6 @@ class TestApiError extends GutTest:
 		assert_eq(e.message, "Could not connect.")
 		assert_eq(e.status, 0)
 
-	func test_parse_failure_factory_keeps_raw() -> void:
-		var e := ApiError.parse_failure("Bad JSON.", "not json")
-		assert_eq(e.kind, &"parse")
-		assert_eq(e.message, "Bad JSON.")
-		assert_eq(e.raw, "not json")
-
 	func test_cancelled_factory() -> void:
 		var e := ApiError.cancelled("Stream cancelled.")
 		assert_eq(e.kind, &"cancelled")
@@ -44,11 +38,6 @@ class TestApiError extends GutTest:
 		assert_eq(e.code, "invalid_api_key")
 		assert_eq(e.type, "invalid_request_error")
 		assert_eq(e.message, "Incorrect API key provided: ABC123.")
-
-	func test_from_response_keeps_raw_body() -> void:
-		var body := error_body()
-		var e := ApiError.from_response(401, body)
-		assert_eq(e.raw, body.get_string_from_utf8())
 
 	func test_from_response_missing_fields_default_to_empty() -> void:
 		var body := (
@@ -133,3 +122,11 @@ class TestProcessHttpResult extends GutTest:
 		assert_false(res["ok"])
 		assert_eq(res["error"].kind, &"http")
 		assert_eq(res["error"].status, 500)
+
+	func test_non_2xx_keeps_status_and_body() -> void:
+		var body := "boom".to_utf8_buffer()
+		var res := client._process_http_result(
+			args(HTTPRequest.RESULT_SUCCESS, 500, body)
+		)
+		assert_eq(res["status"], 500)
+		assert_eq(res["body"], body)

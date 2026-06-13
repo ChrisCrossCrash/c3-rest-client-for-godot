@@ -151,21 +151,58 @@ class TestRequest extends GutTest:
 		var result := await client.request("/embeddings", C3RestClient.Method.POST)
 		assert_eq(result.status, 0)
 
-	func test_body_contains_parsed_response() -> void:
+	func test_body_contains_raw_response() -> void:
 		client.preset_response = {
 			"ok": true,
 			"body": '{"object": "embedding.list", "model": "m"}'.to_utf8_buffer()
 		}
 		var result := await client.request("/embeddings", C3RestClient.Method.POST)
 		assert_true(result.ok)
-		assert_eq(result.body, {"object": "embedding.list", "model": "m"})
+		assert_eq(result.body, '{"object": "embedding.list", "model": "m"}')
+
+	func test_json_contains_parsed_object() -> void:
+		client.preset_response = {
+			"ok": true,
+			"body": '{"object": "embedding.list", "model": "m"}'.to_utf8_buffer()
+		}
+		var result := await client.request("/embeddings", C3RestClient.Method.POST)
+		assert_eq(result.json, {"object": "embedding.list", "model": "m"})
+
+	func test_json_contains_parsed_array() -> void:
+		client.preset_response = {
+			"ok": true, "body": '["a", "b"]'.to_utf8_buffer()
+		}
+		var result := await client.request("/todos", C3RestClient.Method.GET)
+		assert_true(result.ok)
+		assert_eq(result.json, ["a", "b"])
 
 	func test_empty_body_response_is_success() -> void:
 		client.preset_response = {"ok": true, "body": PackedByteArray()}
 		var result := await client.request("/files/abc", C3RestClient.Method.DELETE)
 		assert_true(result.ok)
 		assert_null(result.error)
-		assert_eq(result.body, {})
+		assert_eq(result.body, "")
+		assert_null(result.json)
+
+	func test_non_json_2xx_body_is_success_with_null_json() -> void:
+		client.preset_response = {"ok": true, "body": "not json".to_utf8_buffer()}
+		var result := await client.request("/embeddings", C3RestClient.Method.POST)
+		assert_true(result.ok)
+		assert_null(result.error)
+		assert_eq(result.body, "not json")
+		assert_null(result.json)
+
+	func test_scalar_json_2xx_body_is_success_with_parsed_json() -> void:
+		client.preset_response = {"ok": true, "body": "42".to_utf8_buffer()}
+		var result := await client.request("/count", C3RestClient.Method.GET)
+		assert_true(result.ok)
+		assert_eq(result.json, 42)
+
+	func test_non_json_2xx_body_does_not_emit_request_failed() -> void:
+		client.preset_response = {"ok": true, "body": "not json".to_utf8_buffer()}
+		watch_signals(client)
+		await client.request("/embeddings", C3RestClient.Method.POST)
+		assert_signal_not_emitted(client, "request_failed")
 
 	# --- failure paths ---
 
@@ -187,28 +224,25 @@ class TestRequest extends GutTest:
 		await client.request("/embeddings", C3RestClient.Method.POST)
 		assert_signal_emitted(client, "request_failed")
 
-	func test_returns_failed_response_on_invalid_json() -> void:
+	func test_failed_response_keeps_body_and_json() -> void:
+		var error_body := '{"error": {"message": "Bad key."}, "hint": "rotate"}'
 		client.preset_response = {
-			"ok": true, "body": "not json".to_utf8_buffer()
+			"ok": false,
+			"error": C3RestClient.ApiError.from_response(
+				401, error_body.to_utf8_buffer()
+			),
+			"status": 401,
+			"headers": PackedStringArray(),
+			"body": error_body.to_utf8_buffer(),
 		}
 		var result := await client.request("/embeddings", C3RestClient.Method.POST)
 		assert_false(result.ok)
-		assert_eq(result.error.kind, &"parse")
-
-	func test_returns_failed_response_on_non_object_json() -> void:
-		client.preset_response = {"ok": true, "body": "[1, 2]".to_utf8_buffer()}
-		var result := await client.request("/embeddings", C3RestClient.Method.POST)
-		assert_false(result.ok)
-		assert_eq(result.error.kind, &"parse")
-		assert_eq(result.error.raw, "[1, 2]")
-
-	func test_emits_request_failed_on_parse_failure() -> void:
-		client.preset_response = {
-			"ok": true, "body": "not json".to_utf8_buffer()
-		}
-		watch_signals(client)
-		await client.request("/embeddings", C3RestClient.Method.POST)
-		assert_signal_emitted(client, "request_failed")
+		assert_eq(result.status, 401)
+		assert_eq(result.body, error_body)
+		assert_eq(
+			result.json,
+			{"error": {"message": "Bad key."}, "hint": "rotate"}
+		)
 
 
 ## Tests for [C3RestClient.ApiResponse] defaults.
@@ -226,4 +260,7 @@ class TestApiResponse extends GutTest:
 		assert_eq(C3RestClient.ApiResponse.new().headers, PackedStringArray())
 
 	func test_default_body() -> void:
-		assert_eq(C3RestClient.ApiResponse.new().body, {})
+		assert_eq(C3RestClient.ApiResponse.new().body, "")
+
+	func test_default_json() -> void:
+		assert_null(C3RestClient.ApiResponse.new().json)
